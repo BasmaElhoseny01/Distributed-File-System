@@ -1,7 +1,6 @@
 package data_lookup
 
 import (
-	"fmt"
 	"strconv"
 	"sync"
 )
@@ -49,10 +48,7 @@ func (store *DataNodeLookUpTable)AddDataNode(dataNode *DataNode) (string,error){
 func (store *DataNodeLookUpTable)UpdateNodeStatus(id string,status bool) error{
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
-
-	if store.data[id]!=nil{
-		 return fmt.Errorf("DataNode with ID '%s' doesn't exist", id)
-	}
+	
 	store.data[id].alive=status
 	
 	return nil
