@@ -22,7 +22,10 @@ func main() {
 
 
 	// Register To Services
+	// File Transfer Request Service to Master
 	file_request_transfer_client := req.NewFileTransferRequestServiceClient(connToMaster)
+	// File Transfer Service to Data Node
+
 
 	for{
 		// Transfer type from user
@@ -41,38 +44,19 @@ func main() {
 
 		switch choice {
 		case 1:
-			fmt.Print("Sending Upload Request ....")
+			fmt.Print("Sending Upload Request ....\n")
 			// TODO (1) File Transfer Request
 			response,err :=file_request_transfer_client.UploadRequest(context.Background(), &req.UploadFileRequest{})
 			if err != nil {
-				fmt.Println("Erro",err)
+				fmt.Println(err)
 			}
-			fmt.Print("Received Port ....",response)
-
 
 			// TODO (2) File Transfer
+			fmt.Printf("Sending File to [%s] ....\n",response)
+
 		case 2:
-			fmt.Print("Downloading ....")
+			fmt.Print("Downloading ....\n")
 		}
 
 	}
-
-
-
-	// C
-	// fmt.Print("Enter text to capitalize: ")
-	// var text string
-	// fmt.Scanln(&text)
-	
-	// Take input from user for file name and type of transfer
-	// Take input for the user for 1 to upload and 2 for download
-		
-	
-	// TODO (1) File Transfer Request
-
-
-
-
-	// TODO (2) File Transfer
-
 }

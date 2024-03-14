@@ -30,9 +30,9 @@ func (s *masterServer) Register(ctx context.Context, in *reg.DataKeeperRegisterR
 	fmt.Println("Received: ", in.GetIp())
 	fmt.Println("Received: ", in.GetPort())
 
-
 	// Add the data node to the lookup table
-	node_id,err := s.data_node_lookup_table.AddDataNode(&data_lookup.DataNode{Id: ""})
+	new_data_node:=data_lookup.NewDataNode(in.GetIp(),in.GetPort())
+	node_id, err := s.data_node_lookup_table.AddDataNode(&new_data_node)
 	if err == nil {
 		fmt.Printf("New Data Node '%s' added Successfully\n", node_id)
 	}
@@ -54,7 +54,13 @@ func (s *masterServer) AlivePing(ctx context.Context, in *hb.AlivePingRequest) (
 // FileTransferRequest Services rpc
 func (s *masterServer) UploadRequest (ctx context.Context, in *req.UploadFileRequest) (*req.UploadFileResponse,error){
 	fmt.Println("Received Upload Request")
-	return  &req.UploadFileResponse{Host: "localhost",Port: "5003"},nil
+
+	// Get the data node with the least load
+	node_address,err:=s.data_node_lookup_table.GetLeastLoadedNode()
+	if err != nil {
+		fmt.Println(err)
+	}
+	return  &req.UploadFileResponse{Address: node_address},nil
 }
 
 
@@ -123,23 +129,4 @@ func main() {
 
 	// wait for all goroutines to finish
 	wg.Wait()
-
-
-
-
-
-
-	// // listen to the port
-	// dataKeeper_listener, err := net.Listen("tcp", "localhost:5002")
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-	// defer dataKeeper_listener.Close()
-
-	// // define our master server and register the service
-	// s := grpc.NewServer()
-	// reg.RegisterDataKeeperRegisterServiceServer(s, &masterServer{})
-	// if err := s.Serve(dataKeeper_listener); err != nil {
-	// 	fmt.Println(err)
-	// }
 }

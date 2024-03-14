@@ -13,8 +13,7 @@ service FileTransferRequestService {
 message UploadFileRequest{}
 
 message UploadFileResponse{
-    string host = 1;
-    string port = 2;
+  string address = 1;
 }
 
 // protoc --go_out=. --go-grpc_out=.  ./schema/file_transfer_request/file_transfer_request.proto
