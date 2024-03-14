@@ -7,6 +7,7 @@ import (
 	"time"
 	"sync"
 	Reg "mp4-dfs/schema/register"
+	hb "mp4-dfs/schema/heart_beat"
 )
 
 var id string
@@ -36,14 +37,14 @@ func main() {
 	fmt.Println("Data Keeper ID: ", id)
 	// TODO (2) Send Alive pings to the master node
 	// send alive pings to the master node
-	alive := Reg.NewHeartBeatServiceClient(connToMaster)
+	alive := hb.NewHeartBeatServiceClient(connToMaster)
 	wg := sync.WaitGroup{}
 	// add 1 goroutines to the wait group
 	wg.Add(1)
-	go func(client Reg.HeartBeatServiceClient, id string) {
+	go func(client hb.HeartBeatServiceClient, id string) {
 		defer wg.Done()
 		for {
-			_, err := client.AlivePing(context.Background(), &Reg.AlivePingRequest{DataKeeperId: id})
+			_, err := client.AlivePing(context.Background(), &hb.AlivePingRequest{DataKeeperId: id})
 			if err != nil {
 				fmt.Println(err)
 			}

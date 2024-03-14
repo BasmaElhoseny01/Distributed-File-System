@@ -17,17 +17,5 @@ service DataKeeperRegisterService {
     rpc Register (DataKeeperRegisterRequest) returns (DataKeeperRegisterResponse);
 }
 
-// Heart Beat
-service HeartBeatService{
-    rpc AlivePing(AlivePingRequest) returns (AlivePingResponse);
-}
-
-message AlivePingRequest{
-    string data_keeper_id = 1;
-}
-message AlivePingResponse{
-    string success = 1;
-}
-
 
 // protoc --go_out=. --go-grpc_out=.  ./schema/register/register.proto

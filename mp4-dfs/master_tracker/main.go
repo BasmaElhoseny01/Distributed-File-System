@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"net"
 	"sync"
-
+	"google.golang.org/grpc"
 	data_lookup "mp4-dfs/master_tracker/data_lookup"
 	reg "mp4-dfs/schema/register"
+	hb "mp4-dfs/schema/heart_beat"
 
-	"google.golang.org/grpc"
 )
 
 
 type masterServer struct {
 	reg.UnimplementedDataKeeperRegisterServiceServer
-	reg.UnimplementedHeartBeatServiceServer
+	hb.UnimplementedHeartBeatServiceServer
 	data_node_lookup_table data_lookup.DataNodeLookUpTable
 }
 
@@ -36,14 +36,14 @@ func (s *masterServer) Register(ctx context.Context, in *reg.DataKeeperRegisterR
 }
 
 // HeartBeat Registration Services rpc
-func (s *masterServer) AlivePing(ctx context.Context, in *reg.AlivePingRequest) (*reg.AlivePingResponse, error) {
+func (s *masterServer) AlivePing(ctx context.Context, in *hb.AlivePingRequest) (*hb.AlivePingResponse, error) {
 	node_id:=in.GetDataKeeperId()
 	stamp,err:=s.data_node_lookup_table.UpdateNodeTimeStamp(node_id)
 
 	if err == nil {
 		fmt.Printf("Data Node '%s' Ping Time stamp Updated with %s \n", node_id,stamp.Format("2006-01-02 15:04:05"))
 	}
-	return &reg.AlivePingResponse{},nil
+	return &hb.AlivePingResponse{},nil
 }
 
 
@@ -81,12 +81,12 @@ func handleDataKeeper(master *masterServer) {
 	reg.RegisterDataKeeperRegisterServiceServer(s,master)
 
 	// Register in HeartBeat Service
-	reg.RegisterHeartBeatServiceServer(s,master)
+	hb.RegisterHeartBeatServiceServer(s,master)
 	
 	if err := s.Serve(dataKeeper_listener); err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println("Handle Data Keeper")
+	fmt.Println("Handle Data Keeper finished")
 }
 
 func main() {

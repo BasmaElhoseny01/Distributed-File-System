@@ -1,20 +1,21 @@
-// syntax = "proto3";
+syntax = "proto3";
 
 
-// package heart_beat;
+package heart_beat;
 
-// // Go Bindings Generations
-// option go_package = "schema/heart_beat";
+// Go Bindings Generations
+option go_package = "schema/heart_beat";
 
 
-// // Services
-// service HeartBeatService{
-//     rpc AlivePing(AlivePingRequest) returns (AlivePingResponse);
-// }
+// Services
+service HeartBeatService{
+    rpc AlivePing(AlivePingRequest) returns (AlivePingResponse);
+}
 
-// message AlivePingRequest{
-//     string data_keeper_id = 1;
-// }
-// message AlivePingResponse{
-//     string success = 1;
-// }
+message AlivePingRequest{
+    string data_keeper_id = 1;
+}
+message AlivePingResponse{
+    string success = 1;
+}
+// protoc --go_out=. --go-grpc_out=.  ./schema/heart_beat/heart_beat.proto
