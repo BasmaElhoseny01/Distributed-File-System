@@ -3,20 +3,33 @@ package main
 import (
 	"context"
 	"fmt"
-	"google.golang.org/grpc"
-	reg "mp4-dfs/schema/register"
 	"net"
 	"sync"
+
+	reg "mp4-dfs/schema/register"
+
+	"google.golang.org/grpc"
 )
+
+var data_node_lookup_table=NewDataNodeLookUpTable()
 
 type masterServer struct {
 	reg.UnimplementedDataKeeperRegisterServiceServer
 }
 
+
 func (s *masterServer) Register(ctx context.Context, in *reg.DataKeeperRegisterRequest) (*reg.DataKeeperRegisterResponse, error) {
 	fmt.Println("Received: ", in.GetIp())
 	fmt.Println("Received: ", in.GetPort())
-	return &reg.DataKeeperRegisterResponse{DataKeeperId: "1234"}, nil
+
+
+	// Add the data node to the lookup table
+	node_id,err := data_node_lookup_table.AddDataNode(&DataNode{Id: "", alive: true})
+	if err == nil {
+		fmt.Printf("New Data Node '%s' added Successfully\n", node_id)
+	}
+
+	return &reg.DataKeeperRegisterResponse{DataKeeperId: node_id}, nil
 }
 
 func handleClient() {
