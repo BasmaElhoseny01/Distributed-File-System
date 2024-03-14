@@ -1,0 +1,78 @@
+package main
+
+import (
+	"context"
+	"fmt"
+
+	req "mp4-dfs/schema/file_transfer_request"
+
+	"google.golang.org/grpc"
+)
+
+func main() {
+	fmt.Println("Welcome Client 😊")
+
+	masterPort := "localhost:5001"
+	connToMaster, err := grpc.Dial(masterPort, grpc.WithInsecure())
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer connToMaster.Close()
+	fmt.Print("Connected To Master Node 🎉\n")
+
+
+	// Register To Services
+	file_request_transfer_client := req.NewFileTransferRequestServiceClient(connToMaster)
+
+	for{
+		// Transfer type from user
+		// choose 1 for upload and 2 for download
+		fmt.Print("Enter 1 for upload and 2 for download: ")
+		var choice int
+		fmt.Scanln(&choice)
+
+		if choice != 1 && choice != 2 {continue}
+
+
+		fmt.Print("Enter file path: ")
+		var filepath string
+		fmt.Scanln(&filepath)
+		fmt.Print(filepath)
+
+		switch choice {
+		case 1:
+			fmt.Print("Sending Upload Request ....")
+			// TODO (1) File Transfer Request
+			response,err :=file_request_transfer_client.UploadRequest(context.Background(), &req.UploadFileRequest{})
+			if err != nil {
+				fmt.Println("Erro",err)
+			}
+			fmt.Print("Received Port ....",response)
+
+
+			// TODO (2) File Transfer
+		case 2:
+			fmt.Print("Downloading ....")
+		}
+
+	}
+
+
+
+	// C
+	// fmt.Print("Enter text to capitalize: ")
+	// var text string
+	// fmt.Scanln(&text)
+	
+	// Take input from user for file name and type of transfer
+	// Take input for the user for 1 to upload and 2 for download
+		
+	
+	// TODO (1) File Transfer Request
+
+
+
+
+	// TODO (2) File Transfer
+
+}

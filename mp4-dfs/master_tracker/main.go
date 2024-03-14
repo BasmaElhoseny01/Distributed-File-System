@@ -5,17 +5,22 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"google.golang.org/grpc"
-	data_lookup "mp4-dfs/master_tracker/data_lookup"
-	reg "mp4-dfs/schema/register"
-	hb "mp4-dfs/schema/heart_beat"
 
+	"google.golang.org/grpc"
+
+	data_lookup "mp4-dfs/master_tracker/data_lookup"
+
+	req "mp4-dfs/schema/file_transfer_request"
+	hb "mp4-dfs/schema/heart_beat"
+	reg "mp4-dfs/schema/register"
 )
 
 
 type masterServer struct {
 	reg.UnimplementedDataKeeperRegisterServiceServer
 	hb.UnimplementedHeartBeatServiceServer
+	req.UnimplementedFileTransferRequestServiceServer
+
 	data_node_lookup_table data_lookup.DataNodeLookUpTable
 }
 
@@ -46,20 +51,29 @@ func (s *masterServer) AlivePing(ctx context.Context, in *hb.AlivePingRequest) (
 	return &hb.AlivePingResponse{},nil
 }
 
+// FileTransferRequest Services rpc
+func (s *masterServer) UploadRequest (ctx context.Context, in *req.UploadFileRequest) (*req.UploadFileResponse,error){
+	fmt.Println("Received Upload Request")
+	return  &req.UploadFileResponse{Host: "localhost",Port: "5003"},nil
+}
+
 
 func handleClient(master *masterServer) {
 	fmt.Println("Handle Client")
 	// listen to the port
-	dataKeeper_listener, err := net.Listen("tcp", "localhost:5001")
+	client_listener, err := net.Listen("tcp", "localhost:5001")
 	if err != nil {
 		fmt.Println(err)
 	}
-	defer dataKeeper_listener.Close()
+	defer client_listener.Close()
 
 	// define our master server and register the service
 	s := grpc.NewServer()
-	reg.RegisterDataKeeperRegisterServiceServer(s, master)
-	if err := s.Serve(dataKeeper_listener); err != nil {
+
+	// Register in File Transfer Request Service
+	req.RegisterFileTransferRequestServiceServer(s, master)
+
+	if err := s.Serve(client_listener); err != nil {
 		fmt.Println(err)
 	}
 	fmt.Println("Handle Client")

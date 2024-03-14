@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package file_transfer_request;
+
+// Go Bindings Generations
+option go_package = "schema/file_transfer_request";
+
+//Services
+service FileTransferRequestService {
+  rpc UploadRequest(UploadFileRequest) returns (UploadFileResponse);
+}
+
+message UploadFileRequest{}
+
+message UploadFileResponse{
+    string host = 1;
+    string port = 2;
+}
+
+// protoc --go_out=. --go-grpc_out=.  ./schema/file_transfer_request/file_transfer_request.proto

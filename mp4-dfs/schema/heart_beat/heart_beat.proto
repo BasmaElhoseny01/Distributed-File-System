@@ -1,6 +1,5 @@
 syntax = "proto3";
 
-
 package heart_beat;
 
 // Go Bindings Generations
