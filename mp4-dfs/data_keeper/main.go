@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"google.golang.org/grpc"
 	"time"
+	"sync"
 	Reg "mp4-dfs/schema/register"
 )
 
@@ -36,8 +37,11 @@ func main() {
 	// TODO (2) Send Alive pings to the master node
 	// send alive pings to the master node
 	alive := Reg.NewHeartBeatServiceClient(connToMaster)
-
+	wg := sync.WaitGroup{}
+	// add 1 goroutines to the wait group
+	wg.Add(1)
 	go func(client Reg.HeartBeatServiceClient, id string) {
+		defer wg.Done()
 		for {
 			_, err := client.AlivePing(context.Background(), &Reg.AlivePingRequest{DataKeeperId: id})
 			if err != nil {
@@ -48,4 +52,5 @@ func main() {
 			fmt.Println("Alive Ping Sent")
 		}
 	}(alive, id)
+	wg.Wait()
 }
