@@ -37,9 +37,13 @@ func (s *masterServer) Register(ctx context.Context, in *reg.DataKeeperRegisterR
 
 // HeartBeat Registration Services rpc
 func (s *masterServer) AlivePing(ctx context.Context, in *reg.AlivePingRequest) (*reg.AlivePingResponse, error) {
-	fmt.Println("Received: ", in.GetDataKeeperId())
-	s.data_node_lookup_table.UpdateNodeStatus( in.GetDataKeeperId(),true)
-	return nil,nil
+	node_id:=in.GetDataKeeperId()
+	stamp,err:=s.data_node_lookup_table.UpdateNodeTimeStamp(node_id)
+
+	if err == nil {
+		fmt.Printf("Data Node '%s' Ping Time stamp Updated with %s \n", node_id,stamp.Format("2006-01-02 15:04:05"))
+	}
+	return &reg.AlivePingResponse{},nil
 }
 
 
