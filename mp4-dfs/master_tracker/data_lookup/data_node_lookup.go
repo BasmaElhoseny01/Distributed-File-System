@@ -1,4 +1,4 @@
-package main
+package data_lookup
 
 import (
 	"fmt"
@@ -21,8 +21,8 @@ type DataNodeLookUpTable struct{
 
 }
 
-func NewDataNodeLookUpTable() *DataNodeLookUpTable{
-	return &DataNodeLookUpTable{
+func NewDataNodeLookUpTable() DataNodeLookUpTable{
+	return DataNodeLookUpTable{
 		data:make(map[string]*DataNode),
 	}
 }
@@ -35,6 +35,9 @@ func (store *DataNodeLookUpTable)AddDataNode(dataNode *DataNode) (string,error){
 	// Get Id for teh node
 	store.nodes_count++
 	dataNode.Id=strconv.Itoa(store.nodes_count) 
+
+	// Set variables
+	dataNode.alive=true
 
 	// Add 	node to the lookup table
 	store.data[dataNode.Id]=dataNode

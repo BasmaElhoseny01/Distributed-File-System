@@ -6,15 +6,19 @@ import (
 	"net"
 	"sync"
 
+	data_lookup "mp4-dfs/master_tracker/data_lookup"
 	reg "mp4-dfs/schema/register"
 
 	"google.golang.org/grpc"
 )
 
-var data_node_lookup_table=NewDataNodeLookUpTable()
+// var data_node_lookup_table=NewDataNodeLookUpTable()
+// var myVariable MyStruct // Declaring myVariable globally within the package
+
 
 type masterServer struct {
 	reg.UnimplementedDataKeeperRegisterServiceServer
+	data_node_lookup_table data_lookup.DataNodeLookUpTable
 }
 
 
@@ -24,7 +28,7 @@ func (s *masterServer) Register(ctx context.Context, in *reg.DataKeeperRegisterR
 
 
 	// Add the data node to the lookup table
-	node_id,err := data_node_lookup_table.AddDataNode(&DataNode{Id: "", alive: true})
+	node_id,err := s.data_node_lookup_table.AddDataNode(&data_lookup.DataNode{Id: ""})
 	if err == nil {
 		fmt.Printf("New Data Node '%s' added Successfully\n", node_id)
 	}
@@ -61,7 +65,11 @@ func handleDataKeeper() {
 
 	// define our master server and register the service
 	s := grpc.NewServer()
-	reg.RegisterDataKeeperRegisterServiceServer(s, &masterServer{})
+	
+	reg.RegisterDataKeeperRegisterServiceServer(s, &masterServer{
+		data_node_lookup_table:data_lookup.NewDataNodeLookUpTable(),
+	})
+	
 	if err := s.Serve(dataKeeper_listener); err != nil {
 		fmt.Println(err)
 	}
