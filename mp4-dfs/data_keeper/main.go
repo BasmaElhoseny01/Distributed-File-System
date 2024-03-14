@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net"
+	"os"
 	"sync"
 
 	// "time"
@@ -30,15 +33,82 @@ func NewNodeKeeperServer(ip string, port string) *nodeKeeperServer {
 func (s *nodeKeeperServer) UploadFile(stream tr.FileTransferService_UploadFileServer) error {
 	fmt.Println("Data: Received Uploading")
 
-	for {
-		// req,err = stream.Recv()
-		// fmt.r
-		// if err ==io.EOF{
-		// 	//End Of Stream :D
-		// }
+	// Receive Video Info
+	req, err := stream.Recv()
+	if err!=nil{
+		fmt.Println("cannot receive file data",err)
+		return err
 	}
 
-	// Implement thr RPC
+	fileName :=req.GetInfo().GetName()
+	fmt.Println("received an upload-video request for file",fileName)
+
+	// Receive Chunks
+	video := bytes.Buffer{}
+	videoSize:=0
+
+	for {
+		fmt.Println("Waiting to receive more data")
+
+		req,err:=stream.Recv()
+		if err == io.EOF{
+			fmt.Println("No more Data")
+			break
+		}
+		if err != nil {
+			fmt.Println("cannot receive chunk data",err)
+			return err
+		}
+
+		chunk:=req.GetChuckData()
+		size := len(chunk)
+		videoSize+=size
+
+		fmt.Printf("received a chunk with size: %d\n", size)
+
+		// Write the new chunk
+		_,err=video.Write(chunk)
+		if err!=nil{
+			fmt.Println("cannot write chunk data",err)
+			return err
+		}
+	}
+
+	// Save To Disk
+	err = writeVideoToDisk(fileName,video)
+	if err !=nil{
+		fmt.Println("ERRRRRRRRR")
+	}
+
+	res := &tr.UploadVideoResponse{
+		Size: uint32(videoSize),
+	}
+
+	err = stream.SendAndClose(res)
+	if err != nil {
+		fmt.Printf("cannot send response: %v\n", err)
+	}
+
+	// Implement the RPC
+	return nil
+}
+
+func writeVideoToDisk(fileName string,fileData bytes.Buffer) error{
+	// 1. Create File
+	filePath :=fileName
+	file, err := os.Create(filePath)
+	if err != nil {
+		fmt.Println("cannot create file at",filePath)
+		return err
+	}
+
+	//2. Write to File
+	_, err = fileData.WriteTo(file)
+	if err != nil {
+		fmt.Println("cannot write to file",err)
+		return err
+	}
+	fmt.Printf("Saved %s at %s",fileName,filePath)
 	return nil
 }
 
