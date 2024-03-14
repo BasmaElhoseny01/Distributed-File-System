@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 	"google.golang.org/grpc"
 	Reg "mp4-dfs/schema/register"
 )
@@ -10,6 +10,7 @@ import (
 var id string
 
 func main() {
+
 	fmt.Println("Hello From Data Node 📑")
 	// TODO (1) Register to the master node
 
@@ -31,5 +32,5 @@ func main() {
 	fmt.Println("Registered to the master node")
 	id = response.GetDataKeeperId()
 	fmt.Println("Data Keeper ID: ", id)
-	// TODO (2) Send Alive pings to the master node	
+	// TODO (2) Send Alive pings to the master node
 }
