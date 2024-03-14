@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+
+package heart_beat;
+
+// Go Bindings Generations
+option go_package = "schema/heart_beat";
+
+
+// Services
+service HeartBeatService{
+    rpc AlivePing(AlivePingRequest) returns (AlivePingResponse);
+}
+
+message AlivePingRequest{
+    string data_keeper_id = 1;
+}
+message AlivePingResponse{
+    string success = 1;
+}
