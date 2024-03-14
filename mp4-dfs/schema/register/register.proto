@@ -13,7 +13,7 @@ message DataKeeperRegisterResponse {
     string success = 2;
 }
 
-service Greeter {
+service DataKeeperRegisterService {
     rpc Register (DataKeeperRegisterRequest) returns (DataKeeperRegisterResponse);
 }
 

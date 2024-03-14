@@ -19,89 +19,90 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Greeter_Register_FullMethodName = "/register.Greeter/Register"
+	DataKeeperRegisterService_Register_FullMethodName = "/register.DataKeeperRegisterService/Register"
 )
 
-// GreeterClient is the client API for Greeter service.
+// DataKeeperRegisterServiceClient is the client API for DataKeeperRegisterService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type GreeterClient interface {
+type DataKeeperRegisterServiceClient interface {
 	Register(ctx context.Context, in *DataKeeperRegisterRequest, opts ...grpc.CallOption) (*DataKeeperRegisterResponse, error)
 }
 
-type greeterClient struct {
+type dataKeeperRegisterServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewGreeterClient(cc grpc.ClientConnInterface) GreeterClient {
-	return &greeterClient{cc}
+func NewDataKeeperRegisterServiceClient(cc grpc.ClientConnInterface) DataKeeperRegisterServiceClient {
+	return &dataKeeperRegisterServiceClient{cc}
 }
 
-func (c *greeterClient) Register(ctx context.Context, in *DataKeeperRegisterRequest, opts ...grpc.CallOption) (*DataKeeperRegisterResponse, error) {
+func (c *dataKeeperRegisterServiceClient) Register(ctx context.Context, in *DataKeeperRegisterRequest, opts ...grpc.CallOption) (*DataKeeperRegisterResponse, error) {
 	out := new(DataKeeperRegisterResponse)
-	err := c.cc.Invoke(ctx, Greeter_Register_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, DataKeeperRegisterService_Register_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// GreeterServer is the server API for Greeter service.
-// All implementations must embed UnimplementedGreeterServer
+// DataKeeperRegisterServiceServer is the server API for DataKeeperRegisterService service.
+// All implementations must embed UnimplementedDataKeeperRegisterServiceServer
 // for forward compatibility
-type GreeterServer interface {
+type DataKeeperRegisterServiceServer interface {
 	Register(context.Context, *DataKeeperRegisterRequest) (*DataKeeperRegisterResponse, error)
-	mustEmbedUnimplementedGreeterServer()
+	mustEmbedUnimplementedDataKeeperRegisterServiceServer()
 }
 
-// UnimplementedGreeterServer must be embedded to have forward compatible implementations.
-type UnimplementedGreeterServer struct {
+// UnimplementedDataKeeperRegisterServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedDataKeeperRegisterServiceServer struct {
 }
 
-func (UnimplementedGreeterServer) Register(context.Context, *DataKeeperRegisterRequest) (*DataKeeperRegisterResponse, error) {
+func (UnimplementedDataKeeperRegisterServiceServer) Register(context.Context, *DataKeeperRegisterRequest) (*DataKeeperRegisterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Register not implemented")
 }
-func (UnimplementedGreeterServer) mustEmbedUnimplementedGreeterServer() {}
+func (UnimplementedDataKeeperRegisterServiceServer) mustEmbedUnimplementedDataKeeperRegisterServiceServer() {
+}
 
-// UnsafeGreeterServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to GreeterServer will
+// UnsafeDataKeeperRegisterServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DataKeeperRegisterServiceServer will
 // result in compilation errors.
-type UnsafeGreeterServer interface {
-	mustEmbedUnimplementedGreeterServer()
+type UnsafeDataKeeperRegisterServiceServer interface {
+	mustEmbedUnimplementedDataKeeperRegisterServiceServer()
 }
 
-func RegisterGreeterServer(s grpc.ServiceRegistrar, srv GreeterServer) {
-	s.RegisterService(&Greeter_ServiceDesc, srv)
+func RegisterDataKeeperRegisterServiceServer(s grpc.ServiceRegistrar, srv DataKeeperRegisterServiceServer) {
+	s.RegisterService(&DataKeeperRegisterService_ServiceDesc, srv)
 }
 
-func _Greeter_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _DataKeeperRegisterService_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DataKeeperRegisterRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GreeterServer).Register(ctx, in)
+		return srv.(DataKeeperRegisterServiceServer).Register(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Greeter_Register_FullMethodName,
+		FullMethod: DataKeeperRegisterService_Register_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GreeterServer).Register(ctx, req.(*DataKeeperRegisterRequest))
+		return srv.(DataKeeperRegisterServiceServer).Register(ctx, req.(*DataKeeperRegisterRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// Greeter_ServiceDesc is the grpc.ServiceDesc for Greeter service.
+// DataKeeperRegisterService_ServiceDesc is the grpc.ServiceDesc for DataKeeperRegisterService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var Greeter_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "register.Greeter",
-	HandlerType: (*GreeterServer)(nil),
+var DataKeeperRegisterService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "register.DataKeeperRegisterService",
+	HandlerType: (*DataKeeperRegisterServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Register",
-			Handler:    _Greeter_Register_Handler,
+			Handler:    _DataKeeperRegisterService_Register_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
