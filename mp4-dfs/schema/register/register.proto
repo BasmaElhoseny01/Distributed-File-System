@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+option go_package = "schema/register";
+package register;
+
+message DataKeeperRegisterRequest {
+    string ip = 1;
+    string port = 2;
+
+}
+message DataKeeperRegisterResponse {
+    string data_keeper_id = 1;
+    string success = 2;
+}
+
+service Greeter {
+    rpc Register (DataKeeperRegisterRequest) returns (DataKeeperRegisterResponse);
+}
+
+// protoc --go_out=. --go-grpc_out=.  ./schema/register/register.proto
