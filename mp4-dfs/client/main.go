@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	tr "mp4-dfs/schema/file_transfer"
 	req "mp4-dfs/schema/file_transfer_request"
 
 	"google.golang.org/grpc"
 )
+
+
 
 func main() {
 	fmt.Println("Welcome Client 😊")
@@ -24,7 +27,6 @@ func main() {
 	// Register To Services
 	// File Transfer Request Service to Master
 	file_request_transfer_client := req.NewFileTransferRequestServiceClient(connToMaster)
-	// File Transfer Service to Data Node
 
 
 	for{
@@ -51,8 +53,29 @@ func main() {
 				fmt.Println(err)
 			}
 
-			// TODO (2) File Transfer
-			fmt.Printf("Sending File to [%s] ....\n",response)
+			dataNodePort:=response.Address
+
+			//Establish Connection to Data Node
+			connToDataNode, err := grpc.Dial(dataNodePort, grpc.WithInsecure())
+			if err != nil {
+				fmt.Println(err)
+			}
+			fmt.Printf("Connected To Data Node at %s 🤗\n",dataNodePort)
+
+			// Register To File Transfer Service to Data Node
+			file_transfer_client := tr.NewFileTransferServiceClient(connToDataNode)
+
+			// File Transfer
+			fmt.Printf("Sending File to Data Node ....\n")
+
+			stream,err:=file_transfer_client.UploadFile(context.Background())
+
+			
+			fmt.Print("\nstream",stream)
+			fmt.Print("\nerr",err)
+
+			// Disconnect with Data Node
+			connToMaster.Close()
 
 		case 2:
 			fmt.Print("Downloading ....\n")
