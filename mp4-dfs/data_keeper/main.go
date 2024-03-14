@@ -30,5 +30,6 @@ func main() {
 	// print the response
 	fmt.Println("Registered to the master node")
 	id = response.GetDataKeeperId()
+	fmt.Println("Data Keeper ID: ", id)
 	// TODO (2) Send Alive pings to the master node	
 }
