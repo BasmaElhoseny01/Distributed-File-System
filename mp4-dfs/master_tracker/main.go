@@ -168,6 +168,8 @@ func handleClient(master *masterServer) {
 	// Register in File Transfer Request Service
 	req.RegisterFileTransferRequestServiceServer(s, master)
 
+	download.RegisterDownloadServiceServer(s,master)
+
 	if err := s.Serve(client_listener); err != nil {
 		fmt.Println(err)
 	}

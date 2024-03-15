@@ -180,7 +180,6 @@ func main() {
 			var filename string
 			fmt.Scanln(&filename)
 			fmt.Print("Downloading ....\n")
-			handleDownloadFile(filename)
 			// (1) check if file exists on master
 			// response,err :=file_request_transfer_client.DownloadRequest(context.Background(), &download.DownloadFileRequest{
 			// 	FileName:  filepath.Base(path),
@@ -188,6 +187,7 @@ func main() {
 			response, err := download_request_transfer_client.GetServer(context.Background(), &download.DownloadRequest{
 				FileName: filename,
 			})
+			fmt.Println(response)
 			if err != nil {
 				fmt.Println("cannot request port from master to download the file", err)
 				break
