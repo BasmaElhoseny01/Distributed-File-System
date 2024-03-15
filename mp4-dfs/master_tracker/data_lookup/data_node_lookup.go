@@ -13,7 +13,6 @@ type DataNode struct {
 	alive bool 
 	ping_timestamp time.Time
 	load float32
-
 	Ip string
 	port string
 }
@@ -96,4 +95,19 @@ func (store *DataNodeLookUpTable)UpdateNodeStatus(id string,status bool) error{
 	store.data[id].alive=status
 	
 	return nil
+}
+
+// get ip and port of a node
+func (store *DataNodeLookUpTable)GetNodeAddress(id string) (string,string){
+	store.mutex.RLock()
+	defer store.mutex.RUnlock()
+	
+	// check if node alive
+	if !store.data[id].alive {
+		return "",""
+	}
+	Ip:=store.data[id].Ip
+	port:=store.data[id].port
+	
+	return Ip,port
 }

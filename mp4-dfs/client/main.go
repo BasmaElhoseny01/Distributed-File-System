@@ -5,27 +5,26 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
-
 	cf "mp4-dfs/schema/confirm_file_transfer"
 	tr "mp4-dfs/schema/file_transfer"
 	req "mp4-dfs/schema/file_transfer_request"
+	download "mp4-dfs/schema/download"
+	"os"
+	"path/filepath"
 
 	"google.golang.org/grpc"
 )
 
-
-func handleUploadFile(dataNodeAddress string,path string){
+func handleUploadFile(dataNodeAddress string, path string) {
 	//Establish Connection to Data Node
 	connToDataNode, err := grpc.Dial(dataNodeAddress, grpc.WithInsecure())
 	if err != nil {
-		fmt.Printf("Could not Connect to Master at [%s]",dataNodeAddress)
+		fmt.Printf("Could not Connect to Master at [%s]", dataNodeAddress)
 		fmt.Println(err)
 		return
 	}
 	// defer connToDataNode.Close()
-	fmt.Printf("Connected To Data Node at %s 🤗\n",dataNodeAddress)
+	fmt.Printf("Connected To Data Node at %s 🤗\n", dataNodeAddress)
 
 	// Register To File Transfer Service to Data Node
 	file_transfer_client := tr.NewFileTransferServiceClient(connToDataNode)
@@ -42,13 +41,13 @@ func handleUploadFile(dataNodeAddress string,path string){
 	// Open File
 	file, err := os.Open(path)
 	if err != nil {
-		fmt.Printf("Cannot open Video File at [%s] ",path)
+		fmt.Printf("Cannot open Video File at [%s] ", path)
 		fmt.Println(err)
 		return
 	}
 	defer file.Close()
-	
-	stream,err:=file_transfer_client.UploadFile(context.Background())
+
+	stream, err := file_transfer_client.UploadFile(context.Background())
 	if err != nil {
 		fmt.Println("Cannot upload Video File: ", err)
 		return
@@ -57,7 +56,7 @@ func handleUploadFile(dataNodeAddress string,path string){
 	// Send MetaData For Video File
 	fileName := filepath.Base(path)
 
-	req:=&tr.UploadVideoRequest{
+	req := &tr.UploadVideoRequest{
 		Data: &tr.UploadVideoRequest_Info{
 			Info: &tr.VideoInfo{
 				Name: fileName,
@@ -67,14 +66,14 @@ func handleUploadFile(dataNodeAddress string,path string){
 	err = stream.Send(req)
 	if err != nil {
 		fmt.Println("cannot send file info to server: ", err, stream.RecvMsg(nil))
-		return 
+		return
 	}
 
 	reader := bufio.NewReader(file)
 	buffer := make([]byte, 1024)
-	i:=0
+	i := 0
 	for {
-		i+=1;
+		i += 1
 		fmt.Println("Reading next buffer")
 		n, err := reader.Read(buffer)
 		if err == io.EOF {
@@ -86,9 +85,9 @@ func handleUploadFile(dataNodeAddress string,path string){
 			fmt.Println("cannot read chunk to buffer: ", err)
 			return
 		}
-		fmt.Printf("chunk of size %d n:%d\n", len(buffer[:n]),n)
+		fmt.Printf("chunk of size %d n:%d\n", len(buffer[:n]), n)
 		// Send New Request to Server with Data Chunk
-		req:= &tr.UploadVideoRequest{
+		req := &tr.UploadVideoRequest{
 			Data: &tr.UploadVideoRequest_ChuckData{
 				ChuckData: buffer[:n],
 			},
@@ -108,6 +107,9 @@ func handleUploadFile(dataNodeAddress string,path string){
 	}
 }
 
+func handleDownloadFile(filename string) {
+	
+}
 func main() {
 	fmt.Println("Welcome Client 😊")
 
@@ -119,7 +121,6 @@ func main() {
 	defer connToMaster.Close()
 	fmt.Print("Connected To Master Node 🎉\n")
 
-
 	// Register To Services
 	// File Transfer Request Service to Master
 	file_request_transfer_client := req.NewFileTransferRequestServiceClient(connToMaster)
@@ -127,42 +128,45 @@ func main() {
 	// File Transfer Confirm Request Service to Master
 	confirm_file_transfer_client := cf.NewConfirmFileTransferServiceClient(connToMaster)
 
+	download_request_transfer_client := download.NewDownloadServiceClient(connToMaster)
 
-	for{
+
+
+	for {
 		// Transfer type from user
 		// choose 1 for upload and 2 for download
 		fmt.Print("Enter 1 for upload and 2 for download: ")
 		var choice int
 		fmt.Scanln(&choice)
 
-		if choice != 1 && choice != 2 {continue}
-
+		if choice != 1 && choice != 2 {
+			continue
+		}
 
 		fmt.Print("Enter file path: ")
 		var path string
 		fmt.Scanln(&path)
-	
 
 		switch choice {
 		case 1:
 			fmt.Print("Sending Upload Request ....\n")
 			// (1) File Transfer Request
 			// Send MetaData For Video File
-			response,err :=file_request_transfer_client.UploadRequest(context.Background(), &req.UploadFileRequest{
-				FileName:  filepath.Base(path),
+			response, err := file_request_transfer_client.UploadRequest(context.Background(), &req.UploadFileRequest{
+				FileName: filepath.Base(path),
 			})
 			if err != nil {
-				fmt.Println("cannot request port from master to send the file",err)
+				fmt.Println("cannot request port from master to send the file", err)
 				break
 			}
-			dataNodeAddress:=response.Address
+			dataNodeAddress := response.Address
 
 			// (2) File Transfer
-			handleUploadFile(dataNodeAddress,path)
+			handleUploadFile(dataNodeAddress, path)
 
 			//(3) Await Master Confirmation
 			fmt.Println("Waiting For Confirm From Master")
-			_,err=confirm_file_transfer_client.ConfirmFileTransfer(context.Background(), &cf.ConfirmFileTransferRequest{
+			_, err = confirm_file_transfer_client.ConfirmFileTransfer(context.Background(), &cf.ConfirmFileTransferRequest{
 				FileName: filepath.Base(path),
 			})
 			if err != nil {
@@ -171,12 +175,40 @@ func main() {
 			} else {
 				fmt.Println("Video Uploaded Successfully 🎆")
 			}
-	
-	
-
 		case 2:
+			fmt.Print("Enter file name: ")
+			var filename string
+			fmt.Scanln(&filename)
 			fmt.Print("Downloading ....\n")
+			handleDownloadFile(filename)
+			// (1) check if file exists on master
+			// response,err :=file_request_transfer_client.DownloadRequest(context.Background(), &download.DownloadFileRequest{
+			// 	FileName:  filepath.Base(path),
+			// })
+			response, err := download_request_transfer_client.GetServer(context.Background(), &download.DownloadRequest{
+				FileName: filename,
+			})
+			if err != nil {
+				fmt.Println("cannot request port from master to download the file", err)
+				break
+			}
+			// call get data from response
+			data := response.GetData()
+			fmt.Println(data)
+			file_exists := response.GetError()
+			if file_exists != "" {
+				fmt.Println("File does not exist")
+				break
+			}
+			// (2) File Transfer
+			servers := response.GetServers()
+			if servers == nil {
+				fmt.Println("No servers available")
+				break
+			}
+			// print servers
+			fmt.Println(servers)
+			// process servers ports
 		}
-
 	}
 }

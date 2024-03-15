@@ -44,6 +44,17 @@ func (store *FileLookUpTable)CheckFileExists(file_name string) (bool){
     return exists
 }
 
+func (store *FileLookUpTable)GetFile(file_name string) (bool,string,string,string,string,string,string){
+	// check if file already exist
+	_, exists := store.data[file_name]
+	if !exists {
+		return false,"","","","","",""
+	}
+	return true,store.data[file_name].data_node_1,store.data[file_name].path_1,"","","",""
+	
+	// return true,store.data[file_name].data_node_1,store.data[file_name].path_1,store.data[file_name].replica_node_2,store.data[file_name].path_2,store.data[file_name].replica_node_3,store.data[file_name].path_3
+}
+
 //Add New File
 func (store *FileLookUpTable)AddFile(mp4file *File) (error){
 	// Add File to the lookup table

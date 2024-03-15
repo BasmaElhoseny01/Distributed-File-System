@@ -17,12 +17,12 @@ import (
 	// hb "mp4-dfs/schema/heart_beat"
 	fi "mp4-dfs/schema/finish_file_transfer"
 	Reg "mp4-dfs/schema/register"
+	// download "mp4-dfs/schema/download"
 )
 
 type nodeKeeperServer struct {
 	tr.UnimplementedFileTransferServiceServer
 	Id string
-
 	Ip string
 	port string
 }

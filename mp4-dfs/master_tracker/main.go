@@ -18,6 +18,7 @@ import (
 	fi "mp4-dfs/schema/finish_file_transfer"
 	hb "mp4-dfs/schema/heart_beat"
 	reg "mp4-dfs/schema/register"
+	download "mp4-dfs/schema/download"
 )
 
 
@@ -27,6 +28,7 @@ type masterServer struct {
 	req.UnimplementedFileTransferRequestServiceServer
 	fi.UnimplementedFinishFileTransferServiceServer
 	cf.UnimplementedConfirmFileTransferServiceServer
+	download.UnimplementedDownloadServiceServer
 
 	data_node_lookup_table data_lookup.DataNodeLookUpTable
 	files_lookup_table file_lookup.FileLookUpTable
@@ -121,6 +123,36 @@ func (s *masterServer) ConfirmFileTransfer (ctx context.Context, in *cf.ConfirmF
 	return &cf.ConfirmFileTransferResponse{}, errors.New("file not found")
 }
 
+func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadRequest) (*download.DownloadServerResponse, error) {
+	file_name:=in.GetFileName()
+	fmt.Println("Received Download Request",file_name)
+	// check if file already exist
+	exists,node_1,_,_,_,_,_ :=s.files_lookup_table.GetFile(file_name)
+	if exists == false {
+		// return error to client in response data
+		return  &download.DownloadServerResponse{Data: &download.DownloadServerResponse_Error{
+			Error: "File Not Found",
+		}},nil
+	}
+
+	Ip,Port:=s.data_node_lookup_table.GetNodeAddress(node_1)
+	// return data to client in response data
+	// create list of servers which contains ip and port
+	servers:= &download.ServerList{
+		Servers:[]* download.Server{
+			{
+				Ip:   Ip,
+				Port: Port,
+			},
+		},
+	}
+	return  &download.DownloadServerResponse{
+		Data: &download.DownloadServerResponse_Servers{
+			Servers: servers,
+		},
+	},nil
+}
+
 func handleClient(master *masterServer) {
 	fmt.Println("Handle Client")
 	// listen to the port
@@ -166,6 +198,8 @@ func handleDataKeeper(master *masterServer) {
 	// Register to Confirm File Transfer Service
 	cf.RegisterConfirmFileTransferServiceServer(s,master)
 	
+	download.RegisterDownloadServiceServer(s,master)
+
 	if err := s.Serve(dataKeeper_listener); err != nil {
 		fmt.Println(err)
 	}
