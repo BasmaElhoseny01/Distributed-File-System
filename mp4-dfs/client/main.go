@@ -15,14 +15,16 @@ import (
 )
 
 
-func handleUploadFile(dataNodePort string,path string){
+func handleUploadFile(dataNodeAddress string,path string){
 	//Establish Connection to Data Node
-	connToDataNode, err := grpc.Dial(dataNodePort, grpc.WithInsecure())
+	connToDataNode, err := grpc.Dial(dataNodeAddress, grpc.WithInsecure())
 	if err != nil {
+		fmt.Printf("Could not Connect to Master at [%s]",dataNodeAddress)
 		fmt.Println(err)
+		return
 	}
 	// defer connToDataNode.Close()
-	fmt.Printf("Connected To Data Node at %s 🤗\n",dataNodePort)
+	fmt.Printf("Connected To Data Node at %s 🤗\n",dataNodeAddress)
 
 	// Register To File Transfer Service to Data Node
 	file_transfer_client := tr.NewFileTransferServiceClient(connToDataNode)
@@ -33,19 +35,22 @@ func handleUploadFile(dataNodePort string,path string){
 	// Check if the file exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		fmt.Printf("File %s does not exist\n", path)
+		return
 	}
 
 	// Open File
 	file, err := os.Open(path)
 	if err != nil {
-		fmt.Println("Cannot open Video File: ", err)
+		fmt.Printf("Cannot open Video File at [%s] ",path)
+		fmt.Println(err)
+		return
 	}
-	fmt.Print(file)
 	defer file.Close()
 	
 	stream,err:=file_transfer_client.UploadFile(context.Background())
 	if err != nil {
 		fmt.Println("Cannot upload Video File: ", err)
+		return
 	}
 
 	// Send MetaData For Video File
@@ -61,6 +66,7 @@ func handleUploadFile(dataNodePort string,path string){
 	err = stream.Send(req)
 	if err != nil {
 		fmt.Println("cannot send file info to server: ", err, stream.RecvMsg(nil))
+		return 
 	}
 
 	reader := bufio.NewReader(file)
@@ -77,6 +83,7 @@ func handleUploadFile(dataNodePort string,path string){
 		}
 		if err != nil {
 			fmt.Println("cannot read chunk to buffer: ", err)
+			return
 		}
 		fmt.Printf("chunk of size %d n:%d\n", len(buffer[:n]),n)
 		// Send New Request to Server with Data Chunk
@@ -88,12 +95,8 @@ func handleUploadFile(dataNodePort string,path string){
 		err = stream.Send(req)
 		if err != nil {
 			fmt.Println("cannot send chunk to server: ", err, stream.RecvMsg(nil))
+			return
 		}
-
-		// if i==2{
-		// 	fmt.Println("BREEE")
-		// 	break;
-		// }
 	}
 
 	// sends an EOF (End-of-File) signal to the server
@@ -145,14 +148,19 @@ func main() {
 		switch choice {
 		case 1:
 			fmt.Print("Sending Upload Request ....\n")
-			// TODO (1) File Transfer Request
-			response,err :=file_request_transfer_client.UploadRequest(context.Background(), &req.UploadFileRequest{})
+			// (1) File Transfer Request
+			// Send MetaData For Video File
+			response,err :=file_request_transfer_client.UploadRequest(context.Background(), &req.UploadFileRequest{
+				FileName:  filepath.Base(path),
+			})
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println("cannot request port from master to send the file",err)
+				break
 			}
+			dataNodeAddress:=response.Address
 
-			dataNodePort:=response.Address
-			handleUploadFile(dataNodePort,path)
+			// (2) File Transfer
+			handleUploadFile(dataNodeAddress,path)
 
 		case 2:
 			fmt.Print("Downloading ....\n")

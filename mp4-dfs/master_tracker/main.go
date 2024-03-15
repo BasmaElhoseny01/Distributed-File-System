@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -9,8 +10,10 @@ import (
 	"google.golang.org/grpc"
 
 	data_lookup "mp4-dfs/master_tracker/data_lookup"
+	file_lookup "mp4-dfs/master_tracker/file_lookup"
 
 	req "mp4-dfs/schema/file_transfer_request"
+	fi "mp4-dfs/schema/finish_file_transfer"
 	hb "mp4-dfs/schema/heart_beat"
 	reg "mp4-dfs/schema/register"
 )
@@ -20,8 +23,16 @@ type masterServer struct {
 	reg.UnimplementedDataKeeperRegisterServiceServer
 	hb.UnimplementedHeartBeatServiceServer
 	req.UnimplementedFileTransferRequestServiceServer
+	fi.UnimplementedFinishFileTransferServiceServer
 
 	data_node_lookup_table data_lookup.DataNodeLookUpTable
+	files_lookup_table file_lookup.FileLookUpTable
+}
+func NewMasterServer() masterServer{
+	return masterServer{
+		data_node_lookup_table:data_lookup.NewDataNodeLookUpTable(),
+		files_lookup_table:file_lookup.NewFileLookUpTable(),
+	}
 }
 
 
@@ -53,7 +64,12 @@ func (s *masterServer) AlivePing(ctx context.Context, in *hb.AlivePingRequest) (
 
 // FileTransferRequest Services rpc
 func (s *masterServer) UploadRequest (ctx context.Context, in *req.UploadFileRequest) (*req.UploadFileResponse,error){
-	fmt.Println("Received Upload Request")
+	file_name:=in.GetFileName()
+	fmt.Println("Received Upload Request",file_name)
+	// check if file already exist	
+	if  exists :=s.files_lookup_table.CheckFileExists(file_name); exists {
+		return  &req.UploadFileResponse{},errors.New("file already exists")
+    }
 
 	// Get the data node with the least load
 	node_address,err:=s.data_node_lookup_table.GetLeastLoadedNode()
@@ -63,6 +79,30 @@ func (s *masterServer) UploadRequest (ctx context.Context, in *req.UploadFileReq
 	return  &req.UploadFileResponse{Address: node_address},nil
 }
 
+// Finish File Transfer Service rpc
+func (s *masterServer) FinishFileUpload(ctx context.Context, in *fi.FinishFileUploadRequest) (*fi.FinishFileUploadResponse, error) {
+	fmt.Println("FinishFileUpload  Request")
+	data_node_id:=in.GetDataNodeId()
+	file_name:=in.GetFileName()
+	file_path:=in.GetFilePath()
+
+	// Add File to Files LookUpTable
+	newFile:=file_lookup.NewFile(file_name,data_node_id,file_path)
+	err:=s.files_lookup_table.AddFile(&newFile)
+	if err!=nil{
+		fmt.Printf("Error When adding file %s to lookup Table\n",file_name)
+		println(err)
+		return  &fi.FinishFileUploadResponse{},err
+	}
+	fmt.Printf("Successfully added File %s at node %s in %s to lookup Table",file_name,data_node_id,file_path)
+
+
+	// [TODO] Send Notification Message To Client
+
+	// [TODO] Replicas
+
+	return  &fi.FinishFileUploadResponse{},nil
+}
 
 func handleClient(master *masterServer) {
 	fmt.Println("Handle Client")
@@ -102,6 +142,9 @@ func handleDataKeeper(master *masterServer) {
 
 	// Register in HeartBeat Service
 	hb.RegisterHeartBeatServiceServer(s,master)
+
+	// Register to Finish File Transfer Service
+	fi.RegisterFinishFileTransferServiceServer(s,master)
 	
 	if err := s.Serve(dataKeeper_listener); err != nil {
 		fmt.Println(err)
@@ -113,7 +156,7 @@ func main() {
 	// TODO Thread to listen to alive pings from data keepers
 	fmt.Println("Hello From Master Node 😎")
 	// Create Master Server
-	master:=masterServer{data_node_lookup_table:data_lookup.NewDataNodeLookUpTable()}
+	master:=NewMasterServer()
 	// TODO (1) Register to the master node
 	wg := sync.WaitGroup{}
 	// add 2 goroutines to the wait group

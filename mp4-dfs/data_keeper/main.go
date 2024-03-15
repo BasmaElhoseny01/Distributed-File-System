@@ -15,18 +15,20 @@ import (
 
 	tr "mp4-dfs/schema/file_transfer"
 	// hb "mp4-dfs/schema/heart_beat"
+	fi "mp4-dfs/schema/finish_file_transfer"
 	Reg "mp4-dfs/schema/register"
 )
 
 type nodeKeeperServer struct {
 	tr.UnimplementedFileTransferServiceServer
+	Id string
 
 	Ip string
 	port string
 }
 
-func NewNodeKeeperServer(ip string, port string) *nodeKeeperServer {
-	return &nodeKeeperServer{Ip: ip, port: port}
+func NewNodeKeeperServer(id string,ip string, port string) *nodeKeeperServer {
+	return &nodeKeeperServer{Id:id, Ip: ip, port: port}
 }
 
 // FileTransfer Services rpc [client-streaming] RPC 
@@ -75,9 +77,10 @@ func (s *nodeKeeperServer) UploadFile(stream tr.FileTransferService_UploadFileSe
 	}
 
 	// Save To Disk
-	err = writeVideoToDisk(fileName,video)
+	savePath:=s.Id+"/"+fileName
+	err = writeVideoToDisk(savePath,video)
 	if err !=nil{
-		fmt.Println("ERRRRRRRRR")
+		return err
 	}
 
 	res := &tr.UploadVideoResponse{
@@ -89,13 +92,48 @@ func (s *nodeKeeperServer) UploadFile(stream tr.FileTransferService_UploadFileSe
 		fmt.Printf("cannot send response: %v\n", err)
 	}
 
-	// Implement the RPC
+	// (2) Confirm To master the File Transfer
+	handleConfirmToMaster(s.Id,fileName,savePath)
+
 	return nil
 }
+func handleConfirmToMaster(data_node_id string,file_name string, file_path string){
+	// [TODO] Fix This Replication to connection
+	//Establish Connection to Master Node
+	masterAddress := "localhost:5002"
 
-func writeVideoToDisk(fileName string,fileData bytes.Buffer) error{
+	connToMaster, err := grpc.Dial(masterAddress, grpc.WithInsecure())
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer connToMaster.Close()
+
+	// Register To Confirm File Transfer Service
+	finish_file_transfer_client :=fi.NewFinishFileTransferServiceClient(connToMaster)
+
+	_,err = finish_file_transfer_client.FinishFileUpload(context.Background(),&fi.FinishFileUploadRequest{
+		DataNodeId: data_node_id,
+		FileName: file_name,
+		FilePath: file_path,
+	})
+	if err!=nil{
+		fmt.Print("Failed to Send Finish Upload File Request To Master:",err)
+	}
+}
+
+func writeVideoToDisk(filePath string,fileData bytes.Buffer) error{
+
+	//Create Folder
+	_, err := os.Stat(id)
+	if os.IsNotExist(err) {
+        // Folder doesn't exist, create it
+        err := os.MkdirAll(id, os.ModePerm)
+        if err != nil {
+            return err
+        }
+        fmt.Printf("Folder %s created successfully\n",id)
+	}
 	// 1. Create File
-	filePath :=fileName
 	file, err := os.Create(filePath)
 	if err != nil {
 		fmt.Println("cannot create file at",filePath)
@@ -108,12 +146,12 @@ func writeVideoToDisk(fileName string,fileData bytes.Buffer) error{
 		fmt.Println("cannot write to file",err)
 		return err
 	}
-	fmt.Printf("Saved %s at %s",fileName,filePath)
+	fmt.Printf("Saved at %s",filePath)
 	return nil
 }
 
 // Ping Thread
-func handlePing(connToMaster *grpc.ClientConn, id string) {
+func handlePing(connToMaster *grpc.ClientConn) {
 	// Register to HeartBeats Service
 	// client := hb.NewHeartBeatServiceClient(connToMaster)
 
@@ -139,7 +177,7 @@ func handleClient(ip string ,port string){
 	defer client_listener.Close()
 
 	// Define NodeKeeperServer
-	data_keeper := NewNodeKeeperServer(ip, port)
+	data_keeper := NewNodeKeeperServer(id,ip, port)
 
 	// define Data Keeper Server and register the service
 	s := grpc.NewServer()
@@ -189,7 +227,7 @@ func main() {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		handlePing(connToMaster,id)	
+		handlePing(connToMaster)	
 	}()
 	go func() {
 		defer wg.Done()

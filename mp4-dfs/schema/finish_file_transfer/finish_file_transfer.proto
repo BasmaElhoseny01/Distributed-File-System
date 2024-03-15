@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package finish_file_transfer;
+
+// Go Bindings Generations
+option go_package = "schema/finish_file_transfer";
+
+
+// Services
+service FinishFileTransferService{
+    rpc FinishFileUpload(FinishFileUploadRequest) returns (FinishFileUploadResponse);
+}
+message FinishFileUploadRequest{
+    string data_node_id = 1;
+    string file_name=2;
+    string file_path=3;
+
+}
+
+message FinishFileUploadResponse{}
+// protoc --go_out=. --go-grpc_out=.  ./schema/finish_file_transfer/finish_file_transfer.proto

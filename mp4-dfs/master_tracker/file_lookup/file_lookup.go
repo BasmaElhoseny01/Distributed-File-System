@@ -1,6 +1,7 @@
 package file_lookup
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -8,16 +9,22 @@ type File struct {
 	// Define fields as needed
 	file_name      string
 	data_node_1    string
-	replica_node_1 string
-	replica_node_2 string
+	path_1         string
+	// replica_node_2 string
+	// path_2         string
+	// replica_node_3 string
+	// path_3         string
 }
 
-func NewFile(file_name string, data_node_1 string, replica_node_1 string, replica_node_2 string) File {
+func NewFile(file_name string, data_node_1 string,path_1 string) File {
 	return File{
-		file_name:      file_name,
-		data_node_1:    data_node_1,
-		replica_node_1: "-1",
-		replica_node_2: "-1",
+		file_name:    file_name,
+		data_node_1:  data_node_1,
+		path_1:       path_1,
+		// replica_node_2: "-1",
+		// path_2:"",
+		// replica_node_3: "-1",
+		// path_3:"",
 	}
 }
 
@@ -32,30 +39,20 @@ func NewFileLookUpTable() FileLookUpTable {
 	}
 }
 
-// //Add New File
-// func (store *FileLookUpTable)AddFile(
-// 	mp4file *File,
-// 	mp4Data bytes.Buffer,
-// ) (error){
+func (store *FileLookUpTable)CheckFileExists(file_name string) (bool){
+	_, exists := store.data[file_name]
+    return exists
+}
 
-// 	// Create File for the Video on Disk
-// 	file_path:=fmt.Sprintf("data/%s/%s",mp4file.data_node_1,mp4file.file_name)
-// 	file,err:= os.Create(file_path)
+//Add New File
+func (store *FileLookUpTable)AddFile(mp4file *File) (error){
+	// Add File to the lookup table
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
 
-// 	if err !=nil{
-// 		return fmt.Errorf("cannot write image to file: %w", err)
-// 	}
-
-// 	// Write Data
-// 	_, err = mp4Data.WriteTo(file)
-// 	if err != nil {
-// 		return fmt.Errorf("cannot write image to file: %w", err)
-// 	}
-
-// 	// Add File to the lookup table
-// 	store.mutex.Lock()
-// 	defer store.mutex.Unlock()
-
-// 	store.data[mp4file.file_name]=mp4file
-// 	return nil
-// }
+	store.data[mp4file.file_name]=mp4file
+	for key, value := range store.data {
+		fmt.Printf("Key: %s, Value: %v\n", key, value)
+	}
+	return nil
+}
