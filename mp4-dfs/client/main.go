@@ -5,14 +5,16 @@ import (
 	"context"
 	"fmt"
 	"io"
-	cf "mp4-dfs/schema/confirm_file_transfer"
-	tr "mp4-dfs/schema/file_transfer"
-	req "mp4-dfs/schema/file_transfer_request"
-	download "mp4-dfs/schema/download"
 	"os"
 	"path/filepath"
 
 	"google.golang.org/grpc"
+	// cf "mp4-dfs/schema/confirm_file_transfer"
+	tr "mp4-dfs/schema/file_transfer"
+	// req "mp4-dfs/schema/file_transfer_request"
+	upload "mp4-dfs/schema/upload"
+	utils "mp4-dfs/utils"
+	// download "mp4-dfs/schema/download"
 )
 
 func handleUploadFile(dataNodeAddress string, path string) {
@@ -107,28 +109,60 @@ func handleUploadFile(dataNodeAddress string, path string) {
 	}
 }
 
+func handleUploadFile2(path string){
+	filename := filepath.Base(path)
+
+	//1. Establish Connection to the Master
+	masterAddress := utils.GetMasterIP("client")
+	connToMaster, err := grpc.Dial(masterAddress, grpc.WithInsecure())
+	if err != nil {
+		fmt.Println(err)
+		fmt.Printf("Can not connect to Master at %s\n", masterAddress)
+		return
+	}
+	defer connToMaster.Close()
+	fmt.Printf("Connected To Master %s\n", masterAddress)
+
+	//2. Register as Client to Service Upload File offered by the Master
+	upload_client := upload.NewUploadServiceClient(connToMaster)
+
+
+	// 3. Upload File Request
+	fmt.Print("Sending Upload Request To Master ....\n")
+	response, err:=upload_client.RequestUpload(context.Background(),&upload.RequestUploadRequest{
+		FileName: filename,
+		// ClientSocket: , //[FIX] Add That
+	})
+	if err!=nil{
+		fmt.Println("Failed to request port from Master", err)
+		return
+	}
+
+	node_socket:=response.GetNodeSocket()
+	fmt.Printf("Sending File to %s ...\n", node_socket)
+}
 func handleDownloadFile(filename string) {
 	
 }
 func main() {
 	fmt.Println("Welcome Client 😊")
 
-	masterPort := "localhost:5001"
-	connToMaster, err := grpc.Dial(masterPort, grpc.WithInsecure())
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer connToMaster.Close()
-	fmt.Print("Connected To Master Node 🎉\n")
+	// masterPort := "localhost:5001"
+	// connToMaster, err := grpc.Dial(masterPort, grpc.WithInsecure())
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+	// defer connToMaster.Close()
+	// fmt.Print("Connected To Master Node 🎉\n")
 
-	// Register To Services
-	// File Transfer Request Service to Master
-	file_request_transfer_client := req.NewFileTransferRequestServiceClient(connToMaster)
+	// // Register To Services
+	// // File Transfer Request Service to Master
+	// file_request_transfer_client := req.NewFileTransferRequestServiceClient(connToMaster)
 
-	// File Transfer Confirm Request Service to Master
-	confirm_file_transfer_client := cf.NewConfirmFileTransferServiceClient(connToMaster)
+	// // File Transfer Confirm Request Service to Master
+	// confirm_file_transfer_client := cf.NewConfirmFileTransferServiceClient(connToMaster)
 
-	download_request_transfer_client := download.NewDownloadServiceClient(connToMaster)
+	// download_request_transfer_client := download.NewDownloadServiceClient(connToMaster)
 
 
 
@@ -149,66 +183,66 @@ func main() {
 
 		switch choice {
 		case 1:
-			fmt.Print("Sending Upload Request ....\n")
-			// (1) File Transfer Request
-			// Send MetaData For Video File
-			response, err := file_request_transfer_client.UploadRequest(context.Background(), &req.UploadFileRequest{
-				FileName: filepath.Base(path),
-			})
-			if err != nil {
-				fmt.Println("cannot request port from master to send the file", err)
-				break
-			}
-			dataNodeAddress := response.Address
-
-			// (2) File Transfer
-			handleUploadFile(dataNodeAddress, path)
-
-			//(3) Await Master Confirmation
-			fmt.Println("Waiting For Confirm From Master")
-			_, err = confirm_file_transfer_client.ConfirmFileTransfer(context.Background(), &cf.ConfirmFileTransferRequest{
-				FileName: filepath.Base(path),
-			})
-			if err != nil {
-				fmt.Println("Upload Failed please Try again")
-				fmt.Println(err)
-			} else {
-				fmt.Println("Video Uploaded Successfully 🎆")
-			}
-		case 2:
-			fmt.Print("Enter file name: ")
-			var filename string
-			fmt.Scanln(&filename)
-			fmt.Print("Downloading ....\n")
-			// (1) check if file exists on master
-			// response,err :=file_request_transfer_client.DownloadRequest(context.Background(), &download.DownloadFileRequest{
-			// 	FileName:  filepath.Base(path),
+			handleUploadFile2(path)
+			// // (1) File Transfer Request
+			// // Send MetaData For Video File
+			// response, err := file_request_transfer_client.UploadRequest(context.Background(), &req.UploadFileRequest{
+			// 	FileName: filepath.Base(path),
 			// })
-			response, err := download_request_transfer_client.GetServer(context.Background(), &download.DownloadRequest{
-				FileName: filename,
-			})
-			fmt.Println(response)
-			if err != nil {
-				fmt.Println("cannot request port from master to download the file", err)
-				break
-			}
-			// call get data from response
-			data := response.GetData()
-			fmt.Println(data)
-			file_exists := response.GetError()
-			if file_exists != "" {
-				fmt.Println("File does not exist")
-				break
-			}
-			// (2) File Transfer
-			servers := response.GetServers()
-			if servers == nil {
-				fmt.Println("No servers available")
-				break
-			}
-			// print servers
-			fmt.Println(servers)
-			// process servers ports
+			// if err != nil {
+			// 	fmt.Println("cannot request port from master to send the file", err)
+			// 	break
+			// }
+			// dataNodeAddress := response.Address
+
+			// // (2) File Transfer
+			// handleUploadFile(dataNodeAddress, path)
+
+			// //(3) Await Master Confirmation
+			// fmt.Println("Waiting For Confirm From Master")
+			// _, err = confirm_file_transfer_client.ConfirmFileTransfer(context.Background(), &cf.ConfirmFileTransferRequest{
+			// 	FileName: filepath.Base(path),
+			// })
+			// if err != nil {
+			// 	fmt.Println("Upload Failed please Try again")
+			// 	fmt.Println(err)
+			// } else {
+			// 	fmt.Println("Video Uploaded Successfully 🎆")
+			// }
+		case 2:
+			// fmt.Print("Enter file name: ")
+			// var filename string
+			// fmt.Scanln(&filename)
+			// fmt.Print("Downloading ....\n")
+			// // (1) check if file exists on master
+			// // response,err :=file_request_transfer_client.DownloadRequest(context.Background(), &download.DownloadFileRequest{
+			// // 	FileName:  filepath.Base(path),
+			// // })
+			// response, err := download_request_transfer_client.GetServer(context.Background(), &download.DownloadRequest{
+			// 	FileName: filename,
+			// })
+			// fmt.Println(response)
+			// if err != nil {
+			// 	fmt.Println("cannot request port from master to download the file", err)
+			// 	break
+			// }
+			// // call get data from response
+			// data := response.GetData()
+			// fmt.Println(data)
+			// file_exists := response.GetError()
+			// if file_exists != "" {
+			// 	fmt.Println("File does not exist")
+			// 	break
+			// }
+			// // (2) File Transfer
+			// servers := response.GetServers()
+			// if servers == nil {
+			// 	fmt.Println("No servers available")
+			// 	break
+			// }
+			// // print servers
+			// fmt.Println(servers)
+			// // process servers ports
 		}
 	}
 }

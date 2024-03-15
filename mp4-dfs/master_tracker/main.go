@@ -21,16 +21,18 @@ import (
 	fi "mp4-dfs/schema/finish_file_transfer"
 	hb "mp4-dfs/schema/heart_beat"
 	reg "mp4-dfs/schema/register"
+	"mp4-dfs/schema/upload"
 )
 
 
 type masterServer struct {
 	reg.UnimplementedDataKeeperRegisterServiceServer
 	hb.UnimplementedHeartBeatServiceServer
+	upload.UnimplementedUploadServiceServer
+	download.UnimplementedDownloadServiceServer
 	req.UnimplementedFileTransferRequestServiceServer
 	fi.UnimplementedFinishFileTransferServiceServer
 	cf.UnimplementedConfirmFileTransferServiceServer
-	download.UnimplementedDownloadServiceServer
 
 	data_node_lookup_table data_lookup.DataNodeLookUpTable
 	files_lookup_table file_lookup.FileLookUpTable
@@ -67,6 +69,31 @@ func (s *masterServer) AlivePing(ctx context.Context, in *hb.AlivePingRequest) (
 	}
 	return &hb.AlivePingResponse{},nil
 }
+
+// UploadService RpcS
+// RequestUpload rpc
+func (s *masterServer) RequestUpload (ctx context.Context, in *upload.RequestUploadRequest) (*upload.RequestUploadResponse,error){
+	file_name:=in.GetFileName()
+
+	// check if file already exist	
+	if  exists :=s.files_lookup_table.CheckFileExists(file_name); exists {
+		fmt.Printf("file %s already exists\n",file_name)
+		return  &upload.RequestUploadResponse{},errors.New("")
+    }
+
+	// Get the data node with the least load
+	node_socket,err:=s.data_node_lookup_table.GetLeastLoadedNode()
+	if err != nil {
+		fmt.Printf("Can'r Get DataNode Port %v\n",err)
+		return  &upload.RequestUploadResponse{},err
+	}
+
+	// [FIX]Save The Socket for that client
+	// client_socket:=in.ClientSocket()
+
+	return  &upload.RequestUploadResponse{NodeSocket: node_socket},nil
+}
+
 
 // FileTransferRequest Services rpc
 func (s *masterServer) UploadRequest (ctx context.Context, in *req.UploadFileRequest) (*req.UploadFileResponse,error){
@@ -155,20 +182,23 @@ func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadReque
 }
 
 func handleClient(master *masterServer) {
-	fmt.Println("Handle Client")
+	fmt.Println("Handle Client ")
 	// listen to the port
-	client_listener, err := net.Listen("tcp", "localhost:5001")
+	masterAddress:=utils.GetMasterIP("client")
+	client_listener, err := net.Listen("tcp", masterAddress)
 	if err != nil {
 		fmt.Println(err)
 	}
 	defer client_listener.Close()
+	fmt.Printf("Listening to Client at Socket: %s\n",masterAddress)
 
 	// define our master server and register the service
 	s := grpc.NewServer()
 
-	// Register in File Transfer Request Service
-	req.RegisterFileTransferRequestServiceServer(s, master)
+	// Register to UploadService
+	upload.RegisterUploadServiceServer(s,master)
 
+	// Register to DownloadService
 	download.RegisterDownloadServiceServer(s,master)
 
 	if err := s.Serve(client_listener); err != nil {
@@ -178,15 +208,14 @@ func handleClient(master *masterServer) {
 }
 
 func handleDataKeeper(master *masterServer) {
-	fmt.Println("Handle Data Keeper")
-
 	// listen to the port
-	masterAddress:=utils.GetMasterIP()
+	masterAddress:=utils.GetMasterIP("node")
 	dataKeeper_listener, err := net.Listen("tcp", masterAddress)
 	if err != nil {
 		fmt.Println(err)
 	}
 	defer dataKeeper_listener.Close()
+	fmt.Printf("Listening to Data Keeper at Socket: %s\n",masterAddress)
 
 	// define our master server and register the service
 	s := grpc.NewServer()

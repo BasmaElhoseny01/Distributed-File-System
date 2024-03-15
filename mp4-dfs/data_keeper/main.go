@@ -271,7 +271,7 @@ func main() {
 	fmt.Println("Ports:", ports)
 
 	// 2. Connect To Master
-	masterAddress:=utils.GetMasterIP()
+	masterAddress:=utils.GetMasterIP("node")
 	fmt.Println("Master Node Socket:", masterAddress)
 
 	connToMaster, err := grpc.Dial(masterAddress, grpc.WithInsecure())

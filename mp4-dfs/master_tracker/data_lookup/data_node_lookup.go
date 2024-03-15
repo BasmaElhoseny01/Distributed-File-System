@@ -3,9 +3,9 @@ package data_lookup
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
-	"strings"
 )
 
 // Define your struct for DataNode
@@ -96,7 +96,9 @@ func (store *DataNodeLookUpTable)GetLeastLoadedNode() (string,error){
 			min_node=key
 		}
 	}
-	address:=store.data[min_node].Ip+":"+store.data[min_node].port
+
+	// [FIX] Return the Available Port replace ports[0] with that 
+	address:=store.data[min_node].Ip+":"+store.data[min_node].ports[0]
 	
 	return address,nil
 }

@@ -84,12 +84,18 @@ func IsPortOpen(ip string, port int) bool {
 type ConfigInfo struct {
     Master struct {
         IP   string `json:"ip"`
-        Port int    `json:"port"`
+        ClientPort int `json:"client_port"`
+        NodePort int `json:"node_port"`
     } `json:"master"`
 }
 
 
-func GetMasterIP() string{
+func GetMasterIP(source string) (string){
+    if source!="node" && source!="client"{
+        fmt.Printf("GetMasterIP Option must be node or  source while %s was passed:\n", source)
+        os.Exit(0)
+    } 
+
     // Open the JSON file
     file, err := os.Open("config.json")
     if err != nil {
@@ -106,6 +112,8 @@ func GetMasterIP() string{
         fmt.Println("Error When Reading Config:", err)
         os.Exit(0)
     }
-
-    return fmt.Sprintf("%s:%s", configInfo.Master.IP, strconv.Itoa(configInfo.Master.Port))
+    if source=="node"{
+        return fmt.Sprintf("%s:%s", configInfo.Master.IP, strconv.Itoa(configInfo.Master.NodePort))
+    }
+    return fmt.Sprintf("%s:%s", configInfo.Master.IP, strconv.Itoa(configInfo.Master.ClientPort))
 }
