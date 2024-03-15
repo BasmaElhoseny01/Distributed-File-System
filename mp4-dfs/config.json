@@ -1,0 +1,6 @@
+{
+    "master": {
+        "ip": "localhost",
+        "port": 5002
+    }
+}

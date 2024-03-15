@@ -5,7 +5,8 @@ package register;
 
 message DataKeeperRegisterRequest {
     string ip = 1;
-    string port = 2;
+    string port = 2;//// [TODO] Remove
+    repeated string ports = 3;
 
 }
 message DataKeeperRegisterResponse {

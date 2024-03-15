@@ -10,15 +10,17 @@ import (
 
 	"google.golang.org/grpc"
 
+	utils "mp4-dfs/utils"
+
 	data_lookup "mp4-dfs/master_tracker/data_lookup"
 	file_lookup "mp4-dfs/master_tracker/file_lookup"
 
 	cf "mp4-dfs/schema/confirm_file_transfer"
+	download "mp4-dfs/schema/download"
 	req "mp4-dfs/schema/file_transfer_request"
 	fi "mp4-dfs/schema/finish_file_transfer"
 	hb "mp4-dfs/schema/heart_beat"
 	reg "mp4-dfs/schema/register"
-	download "mp4-dfs/schema/download"
 )
 
 
@@ -43,14 +45,13 @@ func NewMasterServer() masterServer{
 
 // DataKeepersNodes Registration Services rpc
 func (s *masterServer) Register(ctx context.Context, in *reg.DataKeeperRegisterRequest) (*reg.DataKeeperRegisterResponse, error) {
-	fmt.Println("Received: ", in.GetIp())
-	fmt.Println("Received: ", in.GetPort())
-
 	// Add the data node to the lookup table
-	new_data_node:=data_lookup.NewDataNode(in.GetIp(),in.GetPort())
+	// [FIX] Remove in.GetPort()
+	new_data_node:=data_lookup.NewDataNode(in.GetIp(),in.GetPort(),in.GetPorts())
 	node_id, err := s.data_node_lookup_table.AddDataNode(&new_data_node)
 	if err == nil {
-		fmt.Printf("New Data Node '%s' added Successfully\n", node_id)
+		fmt.Printf("New Data Node added Successfully\n")
+		fmt.Println(s.data_node_lookup_table.PrintDataNodeInfo(node_id))
 	}
 
 	return &reg.DataKeeperRegisterResponse{DataKeeperId: node_id}, nil
@@ -178,8 +179,10 @@ func handleClient(master *masterServer) {
 
 func handleDataKeeper(master *masterServer) {
 	fmt.Println("Handle Data Keeper")
+
 	// listen to the port
-	dataKeeper_listener, err := net.Listen("tcp", "localhost:5002")
+	masterAddress:=utils.GetMasterIP()
+	dataKeeper_listener, err := net.Listen("tcp", masterAddress)
 	if err != nil {
 		fmt.Println(err)
 	}
