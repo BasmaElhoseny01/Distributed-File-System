@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 
 	data_lookup "mp4-dfs/master_tracker/data_lookup"
 	file_lookup "mp4-dfs/master_tracker/file_lookup"
 
+	cf "mp4-dfs/schema/confirm_file_transfer"
 	req "mp4-dfs/schema/file_transfer_request"
 	fi "mp4-dfs/schema/finish_file_transfer"
 	hb "mp4-dfs/schema/heart_beat"
@@ -24,6 +26,7 @@ type masterServer struct {
 	hb.UnimplementedHeartBeatServiceServer
 	req.UnimplementedFileTransferRequestServiceServer
 	fi.UnimplementedFinishFileTransferServiceServer
+	cf.UnimplementedConfirmFileTransferServiceServer
 
 	data_node_lookup_table data_lookup.DataNodeLookUpTable
 	files_lookup_table file_lookup.FileLookUpTable
@@ -104,6 +107,20 @@ func (s *masterServer) FinishFileUpload(ctx context.Context, in *fi.FinishFileUp
 	return  &fi.FinishFileUploadResponse{},nil
 }
 
+// Confirm File Transfer Services rpc
+func (s *masterServer) ConfirmFileTransfer (ctx context.Context, in *cf.ConfirmFileTransferRequest) (*cf.ConfirmFileTransferResponse, error){
+	file_name:=in.GetFileName();
+	 // Try checking the condition 5 times with a 2-second interval
+	 for i := 0; i < 5; i++ {
+        if exists := s.files_lookup_table.CheckFileExists(file_name); exists {
+            return &cf.ConfirmFileTransferResponse{}, nil // File exists, return without error
+        }
+        time.Sleep(2 * time.Second) // Wait for 2 seconds before checking again
+    }
+	// If the file doesn't exist after 5 attempts, return an error
+	return &cf.ConfirmFileTransferResponse{}, errors.New("file not found")
+}
+
 func handleClient(master *masterServer) {
 	fmt.Println("Handle Client")
 	// listen to the port
@@ -145,6 +162,9 @@ func handleDataKeeper(master *masterServer) {
 
 	// Register to Finish File Transfer Service
 	fi.RegisterFinishFileTransferServiceServer(s,master)
+
+	// Register to Confirm File Transfer Service
+	cf.RegisterConfirmFileTransferServiceServer(s,master)
 	
 	if err := s.Serve(dataKeeper_listener); err != nil {
 		fmt.Println(err)

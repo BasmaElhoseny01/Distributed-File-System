@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	cf "mp4-dfs/schema/confirm_file_transfer"
 	tr "mp4-dfs/schema/file_transfer"
 	req "mp4-dfs/schema/file_transfer_request"
 
@@ -105,12 +106,6 @@ func handleUploadFile(dataNodeAddress string,path string){
 	if err != nil {
 		fmt.Print("cannot receive response:\n", err)
 	}
-
-	//[TODO] Wait To Receive Confirm From Master
-	fmt.Println("Waiting For Confirm From Master")
-	for{}
-	
-	fmt.Println("Video Uploaded Successfully to Data Node")
 }
 
 func main() {
@@ -128,6 +123,9 @@ func main() {
 	// Register To Services
 	// File Transfer Request Service to Master
 	file_request_transfer_client := req.NewFileTransferRequestServiceClient(connToMaster)
+
+	// File Transfer Confirm Request Service to Master
+	confirm_file_transfer_client := cf.NewConfirmFileTransferServiceClient(connToMaster)
 
 
 	for{
@@ -161,6 +159,20 @@ func main() {
 
 			// (2) File Transfer
 			handleUploadFile(dataNodeAddress,path)
+
+			//(3) Await Master Confirmation
+			fmt.Println("Waiting For Confirm From Master")
+			_,err=confirm_file_transfer_client.ConfirmFileTransfer(context.Background(), &cf.ConfirmFileTransferRequest{
+				FileName: filepath.Base(path),
+			})
+			if err != nil {
+				fmt.Println("Upload Failed please Try again")
+				fmt.Println(err)
+			} else {
+				fmt.Println("Video Uploaded Successfully 🎆")
+			}
+	
+	
 
 		case 2:
 			fmt.Print("Downloading ....\n")
