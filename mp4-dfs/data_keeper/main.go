@@ -25,7 +25,7 @@ import (
 	Reg "mp4-dfs/schema/register"
 	utils "mp4-dfs/utils"
 
-	// download "mp4-dfs/schema/download"
+	download "mp4-dfs/schema/download"
 	upload "mp4-dfs/schema/upload"
 	// "sync"
 	// 	tr "mp4-dfs/schema/file_transfer"
@@ -36,7 +36,7 @@ import (
 type nodeKeeperServer struct {
 	// tr.UnimplementedFileTransferServiceServer
 	upload.UnimplementedUploadServiceServer
-
+	download.UnimplementedDownloadServiceServer
 	Id string
 	Ip string
 	port string //[FIX]
@@ -133,6 +133,38 @@ func (s *nodeKeeperServer) UploadFile(stream upload.UploadService_UploadFileServ
 	return nil
 }
 
+// DownloadFile rpc [server-streaming]
+func (s *nodeKeeperServer) Download(req *download.DownloadRequest, stream download.DownloadService_DownloadServer) error {
+	fileName:=req.GetFileName()
+	// Open File
+	file, err := os.Open(fileName)
+	if err != nil {
+		fmt.Printf("Cannot open Video File at [%s] got error: %v\b", fileName,err)
+		return err
+	}
+	defer file.Close()
+
+	// Read File
+	chunk := make([]byte, 1024*1024) // 1MB
+	for {
+		n, err := file.Read(chunk)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			fmt.Println("Cannot read file",err)
+			return err
+		}
+		// Send Chunk
+		err = stream.Send(&download.DownloadResponse{Data: &download.DownloadResponse_ChuckData{ChuckData: chunk[:n]}})
+		if err != nil {
+			fmt.Println("Cannot send chunk",err)
+			return err
+		}
+	}
+	return nil
+
+}
 func writeVideoToDisk(filePath string,fileData bytes.Buffer) error{
 
 	//Create Folder
@@ -207,7 +239,9 @@ func handleClient(ip string ,ports []string){
 
 	// Register to Upload File Service [Server]
 	upload.RegisterUploadServiceServer(s, data_keeper)
-
+	
+	// Register to Download File Service [Server]
+	download.RegisterDownloadServiceServer(s, data_keeper)
 	// Loop through each port and start a listener
 	for _, port := range ports {
         go listenOnPort(s,ip,port)

@@ -124,7 +124,7 @@ func (store *DataNodeLookUpTable)GetNodeAddress(id string) (string,string){
 		return "",""
 	}
 	Ip:=store.data[id].Ip
-	port:=store.data[id].port
+	port:=store.data[id].ports[0]
 	
 	return Ip,port
 }

@@ -50,7 +50,7 @@ func (store *FileLookUpTable)GetFile(file_name string) (bool,string,string,strin
 	if !exists {
 		return false,"","","","","",""
 	}
-	return true,store.data[file_name].data_node_1,store.data[file_name].path_1,"","","",""
+	return true,store.data[file_name].data_node_1,store.data[file_name].path_1,store.data[file_name].replica_node_2,store.data[file_name].path_2,store.data[file_name].replica_node_3,store.data[file_name].path_3
 	
 	// return true,store.data[file_name].data_node_1,store.data[file_name].path_1,store.data[file_name].replica_node_2,store.data[file_name].path_2,store.data[file_name].replica_node_3,store.data[file_name].path_3
 }

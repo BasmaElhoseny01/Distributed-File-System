@@ -168,31 +168,54 @@ func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadReque
 	file_name:=in.GetFileName()
 	fmt.Println("Received Download Request",file_name)
 	// check if file already exist
-	exists,node_1,path_1,_,_,_,_ :=s.files_lookup_table.GetFile(file_name)
-	if exists == false {
+	exists,node_1,path_1,node_2,path_2,node_3,path_3 :=s.files_lookup_table.GetFile(file_name)
+	if !exists {
 		// return error to client in response data
 		return  &download.DownloadServerResponse{Data: &download.DownloadServerResponse_Error{
 			Error: "File Not Found",
 		}},nil
 	}
-
-	Ip,Port:=s.data_node_lookup_table.GetNodeAddress(node_1)
-	// return data to client in response data
+	Ip1 := ""
+	Ip2 := ""
+	Ip3 := ""
+	Port1 := ""
+	Port2 := ""
+	Port3 := ""
+	// Get the data node with the least load
+	if node_1!= "-1"{
+		Ip1,Port1 =s.data_node_lookup_table.GetNodeAddress(node_1)
+	}
+	if node_2!= "-1"{
+		Ip2,Port2=s.data_node_lookup_table.GetNodeAddress(node_2)
+	}
+	if node_3!= "-1"{
+		Ip3,Port3 =s.data_node_lookup_table.GetNodeAddress(node_3)
+	}
 	// create list of servers which contains ip and port
 	servers := []*download.Server{
-		{
-			Ip:   Ip,
-			Port: Port,
-			FilePath: path_1,
-		},
 	}
-	// append another server to the list
-	servers = append(servers, &download.Server{
-		Ip:   "localhost",
-		Port: "5002",
-		FilePath: "path_2",
-	})
-
+	if Ip1!=""{
+		servers = append(servers, &download.Server{
+			Ip:   Ip1,
+			Port: Port1,
+			FilePath: path_1,
+		})
+	}
+	if Ip2!=""{
+		servers = append(servers, &download.Server{
+			Ip:   Ip2,
+			Port: Port2,
+			FilePath: path_2,
+		})
+	}
+	if Ip3!=""{
+		servers = append(servers, &download.Server{
+			Ip:   Ip3,
+			Port: Port3,
+			FilePath: path_3,
+		})
+	}
+	// create list of servers
 	servers_list:= &download.ServerList{
 		Servers: servers,
 	}
