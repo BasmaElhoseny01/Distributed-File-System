@@ -251,16 +251,34 @@ func (s *masterServer) sendClientConfirm(fileName string){
 	file_confirm_client:=upload.NewUploadServiceClient(connToClient)
 	fmt.Print("Sending Notification To Client ....\n")
 	
-	_, err=file_confirm_client.ConfirmUpload(context.Background(),&upload.ConfirmUploadRequest{})
-	
+	// println("Sleeping")
+	// time.Sleep(50 * time.Second)
+	// println("GoodMorning")
+
+	res, err:=file_confirm_client.ConfirmUpload(context.Background(),&upload.ConfirmUploadRequest{
+		FileName: fileName,
+	})
+
 	if err!=nil{
 		fmt.Println("Failed to Send Notification to Client", err)
+		res_status:=res.GetStatus()
+		println("res_status",res_status)
+
+		if res_status=="time_out"{
+			println("Time OUT")
+			//[TODO] Drop File Because the client will resend it
+			
+		}
+		if res_status=="wrong_file"{
+			println("WRONGfile")
+			// [TODO] Wrong file		
+		}
 		return 
 	}
-
-	// // Remove Client
-	// s.client_lookup_table.RemoveClient(fileName)
-	// fmt.Print("Removed Client :D\n")
+	
+	// Remove Client
+	s.client_lookup_table.RemoveClient(fileName)
+	fmt.Print("Removed Client :D\n")
 }
 
 func main() {

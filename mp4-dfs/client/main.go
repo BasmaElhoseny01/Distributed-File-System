@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -33,27 +34,37 @@ func newClientNode(socket_no string) clientNode{
 
 
 var confirmationReceived bool // Shared variable to track confirmation status
+var fileReceived string // Shared variable to track confirmation status
 var confirmationMutex sync.Mutex // Mutex for concurrent access to the confirmation status
 
 // ConfirmUpload rpc
 func (c *clientNode) ConfirmUpload(ctx context.Context, in *upload.ConfirmUploadRequest) (*upload.ConfirmUploadResponse, error) {
+	fmt.Printf("Master is Trying.......")
+
 	confirmationMutex.Lock()
 	defer confirmationMutex.Unlock()
+	if fileReceived == ""{
+		return &upload.ConfirmUploadResponse{Status: "time_out"},errors.New("client time out")
+	}
 
 	confirmationReceived = true
 	fileName:=in.GetFileName()
-
+	if fileName!=fileReceived{
+		return &upload.ConfirmUploadResponse{
+			Status: "wrong_file",
+		},fmt.Errorf("client expected confirmation for %s but master sent confirmation for %s",fileName,fileReceived)
+	}
+	
 	fmt.Printf("Master Confirmed File %s being uploaded successfully\n",fileName)
-	println(confirmationReceived)
 	return &upload.ConfirmUploadResponse{},nil
 }
 
-func handleUploadFile(path string,socket string){
+func handleUploadFile(path string,socket string) error{
 
 	// Check if the file exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		fmt.Printf("File %s does not exist\n", path)
-		return
+		return err
 	}
 
 	filename := filepath.Base(path)
@@ -64,7 +75,7 @@ func handleUploadFile(path string,socket string){
 	if err != nil {
 		fmt.Println(err)
 		fmt.Printf("Can not connect to Master at %s\n", masterAddress)
-		return
+		return err
 	}
 	fmt.Printf("Connected To Master %s\n", masterAddress)
 
@@ -80,7 +91,7 @@ func handleUploadFile(path string,socket string){
 	})
 	if err!=nil{
 		fmt.Println("Failed to request port from Master", err)
-		return
+		return err
 	}
 
 	nodeSocket:=response.GetNodeSocket()
@@ -94,7 +105,7 @@ func handleUploadFile(path string,socket string){
 	connToDataNode, err := grpc.Dial(nodeSocket, grpc.WithInsecure())
 	if err != nil {
 		fmt.Printf("Could not Connect to DataNode at [%s]\n", nodeSocket)
-		return
+		return err
 	}
 	defer connToDataNode.Close()
 
@@ -103,6 +114,7 @@ func handleUploadFile(path string,socket string){
 
 	// Send File MetaData + Chunks
 	sendFile(path,uploadClient)
+	return nil
 }
 
 func sendFile(path string,uploadClient upload.UploadServiceClient){
@@ -226,7 +238,7 @@ func main() {
 	for {
 		// Transfer type from user
 		// choose 1 for upload and 2 for download
-		fmt.Print("Enter 1 for upload and 2 for download: ")
+		fmt.Print("Enter 1 for upload and 2 for download:")
 		var choice int
 		fmt.Scanln(&choice)
 
@@ -237,6 +249,7 @@ func main() {
 		fmt.Print("Enter file path: ")
 		var path string
 		fmt.Scanln(&path)
+		fileReceived=filepath.Base(path)
 
 		switch choice {
 		case 1:
@@ -246,27 +259,38 @@ func main() {
 			confirmationMutex.Unlock() 
 
 			//Upload File
-			handleUploadFile(path,client_socket)
+			err:=handleUploadFile(path,client_socket)
+			if err!=nil{
+				confirmationMutex.Lock()
+				fileReceived=""
+				confirmationMutex.Unlock()
+				continue
+			}
 
 			//Wait For Confirm From Master
 			fmt.Println("Waiting for confirmation from server...")
+			attempts_count:=0
 			for{
 				confirmationMutex.Lock()
-				println("confirmationReceived",confirmationReceived)
+
+				attempts_count+=1
 				if confirmationReceived {
 					confirmationMutex.Unlock()
+					fmt.Println("Video Uploaded Successfully 🎆")
 					break
 				}
-				confirmationMutex.Unlock()
+				// if attempts_count>5{
+				if attempts_count>2{
+					fileReceived=""
+					confirmationMutex.Unlock()
+					fmt.Println("Upload Failed please Try again")
+					break
+				}
 
+				confirmationMutex.Unlock()
 				// Sleep for 5 seconds before the next check
 				time.Sleep(5 * time.Second)
 			}
-			fmt.Println("Video Uploaded Successfully 🎆")
-			// if err != nil {
-				// fmt.Println("Upload Failed please Try again")
-			// 	fmt.Println(err)
-			// } else {
 		
 		case 2:
 			// fmt.Print("Enter file name: ")
