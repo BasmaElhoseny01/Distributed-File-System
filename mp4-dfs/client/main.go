@@ -239,6 +239,17 @@ func main() {
 			var filename string
 			fmt.Scanln(&filename)
 			fmt.Print("Downloading ....\n")
+			//1. Establish Connection to the Master
+			masterAddress := utils.GetMasterIP("client")
+			connToMaster, err := grpc.Dial(masterAddress, grpc.WithInsecure())
+			if err != nil {
+				fmt.Println(err)
+				fmt.Printf("Can not connect to Master at %s\n", masterAddress)
+				return
+			}
+			fmt.Printf("Connected To Master %s\n", masterAddress)
+			download_request_transfer_client := download.NewDownloadServiceClient(connToMaster)
+
 			// (1) check if file exists on master
 			response, err := download_request_transfer_client.GetServer(context.Background(), &download.DownloadRequest{
 				FileName: filename,
