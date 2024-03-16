@@ -14,7 +14,7 @@ import (
 
 	upload "mp4-dfs/schema/upload"
 	utils "mp4-dfs/utils"
-	// download "mp4-dfs/schema/download"
+	download "mp4-dfs/schema/download"
 )
 
 type clientNode struct{
@@ -194,31 +194,6 @@ func main() {
 			var path string
 			fmt.Scanln(&path)
 			fmt.Print("Sending Upload Request ....\n")
-			// (1) File Transfer Request
-			// Send MetaData For Video File
-			response, err := file_request_transfer_client.UploadRequest(context.Background(), &req.UploadFileRequest{
-				FileName: filepath.Base(path),
-			})
-			if err != nil {
-				fmt.Println("cannot request port from master to send the file", err)
-				break
-			}
-			dataNodeAddress := response.Address
-
-			// (2) File Transfer
-			handleUploadFile(dataNodeAddress, path)
-
-			//(3) Await Master Confirmation
-			fmt.Println("Waiting For Confirm From Master")
-			_, err = confirm_file_transfer_client.ConfirmFileTransfer(context.Background(), &cf.ConfirmFileTransferRequest{
-				FileName: filepath.Base(path),
-			})
-			if err != nil {
-				fmt.Println("Upload Failed please Try again")
-				fmt.Println(err)
-			} else {
-				fmt.Println("Video Uploaded Successfully 🎆")
-			}
 			//Upload File
 			handleUploadFile(path,client_socket)
 
