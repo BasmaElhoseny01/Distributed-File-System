@@ -14,6 +14,8 @@ type File struct {
 	path_2         string
 	replica_node_3 string
 	path_3         string
+
+	confirmed bool
 }
 
 func NewFile(file_name string, data_node_1 string,path_1 string) File {
@@ -24,7 +26,8 @@ func NewFile(file_name string, data_node_1 string,path_1 string) File {
 		replica_node_2: "-1",  //[FIX]
 		path_2:"", //[FIX]
 		replica_node_3: "-1", //[FIX]
-		path_3:"", //[FIX]
+		path_3:"", //[FIX],
+		confirmed:false,
 	}
 }
 
@@ -72,7 +75,40 @@ func (store *FileLookUpTable)AddFile(mp4file *File) (error){
 func (store *FileLookUpTable) PrintFileInfo(fileName string )(string){
 	file:=store.data[fileName]
 
-	details := fmt.Sprintf("File Name: %s, at node [%s] in %s ,at node [%s] in %s ,at node [%s] in %s",
-	file.file_name, file.data_node_1, file.path_1,file.replica_node_2,file.path_2,file.replica_node_3,file.path_3)
+	details := fmt.Sprintf("[File] Name: %s,confirmed : %t,at node [%s] in %s ,at node [%s] in %s ,at node [%s] in %s",
+	file.file_name,file.confirmed, file.data_node_1, file.path_1,file.replica_node_2,file.path_2,file.replica_node_3,file.path_3)
 	return details
+}
+
+//GetNonConfirmed Files
+func(store *FileLookUpTable) CheckUnConfirmedFiles()([]string){
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+
+	nonConfirmedFiles := make([]string, 0)
+
+	for _, file := range store.data {
+		if !file.confirmed {
+			nonConfirmedFiles = append(nonConfirmedFiles, file.file_name)
+		}
+	}
+
+	return nonConfirmedFiles
+}
+
+//Confirm File
+func(store *FileLookUpTable) ConfirmFile(fileName string)(){
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+	store.data[fileName].confirmed=true
+	return
+}
+
+
+//Remove File
+func(store *FileLookUpTable) RemoveFile(fileName string)(){
+	store.mutex.Lock()
+    defer store.mutex.Unlock()
+    delete(store.data, fileName)
+	return
 }

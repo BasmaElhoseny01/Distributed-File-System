@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -86,7 +88,7 @@ func (s *masterServer) RequestUpload (ctx context.Context, in *upload.RequestUpl
 	// Get the data node with the least load
 	node_socket,err:=s.data_node_lookup_table.GetLeastLoadedNode()
 	if err != nil {
-		fmt.Printf("Can'r Get DataNode Port %v\n",err)
+		fmt.Printf("Can not Get DataNode Port %v\n",err)
 		return  &upload.RequestUploadResponse{},err
 	}
 
@@ -120,49 +122,8 @@ func (s *masterServer) NotifyMaster (ctx context.Context, in *upload.NotifyMaste
 	fmt.Printf("New File added Successfully\n")
 	fmt.Println(s.files_lookup_table.PrintFileInfo(fileName))
 
-	// // Send Notification to Client
-	// // GetSocket for teh Client 
-	// client_socket:=s.client_lookup_table.GetClientSocket(fileName)
-	// //1. Establish Connection to the Master
-	// connToClient, err := grpc.Dial(client_socket, grpc.WithInsecure())
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	fmt.Printf("Can not connect to Master at %s\n", client_socket)
-	// 	return &upload.NotifyMasterResponse{}, err
-	// }
-	// fmt.Printf("Connected To Master %s\n", client_socket)
-
-	// confirm_client:=upload.NewUploadServiceClient(connToClient)
-	
-	// fmt.Print("Sending Notification To Client ....\n")
-	// _, err=confirm_client.ConfirmUpload(context.Background(),&upload.ConfirmUploadRequest{})
-	// if err!=nil{
-	// 	fmt.Println("Failed to Send Notification to Client", err)
-	// 	return &upload.NotifyMasterResponse{}, err
-	// }
-	// // Remove Client
-	// s.client_lookup_table.RemoveClient(fileName)
-	// fmt.Print("Removed Client :D\n")
-
-
-	// // [TODO] Check Replica
-
 	return &upload.NotifyMasterResponse{}, nil
 }
-
-// // Confirm File Transfer Services rpc
-// func (s *masterServer) ConfirmFileTransfer (ctx context.Context, in *cf.ConfirmFileTransferRequest) (*cf.ConfirmFileTransferResponse, error){
-// 	file_name:=in.GetFileName();
-// 	 // Try checking the condition 5 times with a 2-second interval
-// 	 for i := 0; i < 5; i++ {
-//         if exists := s.files_lookup_table.CheckFileExists(file_name); exists {
-//             return &cf.ConfirmFileTransferResponse{}, nil // File exists, return without error
-//         }
-//         time.Sleep(2 * time.Second) // Wait for 2 seconds before checking again
-//     }
-// 	// If the file doesn't exist after 5 attempts, return an error
-// 	return &cf.ConfirmFileTransferResponse{}, errors.New("file not found")
-// }
 
 func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadRequest) (*download.DownloadServerResponse, error) {
 	file_name:=in.GetFileName()
@@ -282,6 +243,89 @@ func handleDataKeeper(master *masterServer) {
 	}
 	fmt.Println("Handle Data Keeper finished")
 }
+func periodicCheckup(master *masterServer){
+	for{
+		println("Periodic Checkup")
+		//1. Check Ideal DataNodes
+
+		// 2.Sent Notifications to Clients
+		println("Checking UnConfirmed Files...")
+		unconfirmedFiles:=master.files_lookup_table.CheckUnConfirmedFiles()
+		println(unconfirmedFiles)
+		for _, file := range unconfirmedFiles{
+			master.sendClientConfirm(file)
+
+		}
+			
+			
+		// 	//3. Check For Replicas
+
+		// Sleep for 5 seconds before the next check
+		time.Sleep(5 * time.Second)
+	}
+
+}
+
+func (s *masterServer) sendClientConfirm(fileName string){
+	// Send Notification to Client
+	// GetSocket for the Client 
+	client_socket:=s.client_lookup_table.GetClientSocket(fileName)
+	//1. Establish Connection to the Master
+	connToClient, err := grpc.Dial(client_socket, grpc.WithInsecure())
+	if err != nil {
+		fmt.Printf("Can not connect to Client at %s error: %v \n", client_socket,err)
+	}
+	defer func() {
+		connToClient.Close()
+		fmt.Printf("Closed Connection To Client %s\n", client_socket)
+	}()
+	fmt.Printf("Connected To Client %s\n", client_socket)
+
+	file_confirm_client:=upload.NewUploadServiceClient(connToClient)
+	fmt.Print("Sending Notification To Client ....\n")
+	
+	// println("Sleeping")
+	// time.Sleep(50 * time.Second)
+	// // time.Sleep(10 * time.Second)
+	// println("GoodMorning")
+
+	res, err:=file_confirm_client.ConfirmUpload(context.Background(),&upload.ConfirmUploadRequest{
+		FileName: fileName,
+	})
+	if err!=nil{
+		fmt.Println("Failed to Send Notification to Client", err)
+		return
+	}
+
+	response_status:=res.GetStatus()
+
+	
+	if response_status=="time_out"{
+		fmt.Printf("File %s Confirmation is TimedOut So We will Drop it\n",fileName)
+		//Remove File
+		s.files_lookup_table.RemoveFile(fileName)
+
+		//[TODO Extra Send Request to DataNode to Remove the FIle Uploaded]
+
+		// Remove Client
+		s.client_lookup_table.RemoveClient(fileName)
+
+		return
+	}
+	if response_status=="wrong_file"{
+		println("WRONG file Between expected by Node and ConfirmationSent [Syntax Error]")
+		os.Exit(1)
+		// [TODO] Wrong file Confirmation Handling
+
+		return
+	}
+	
+	//Update File as Confirmed
+	s.files_lookup_table.ConfirmFile(fileName)
+	// Remove Client
+	s.client_lookup_table.RemoveClient(fileName)
+	fmt.Print("Removed Client :D\n")
+}
 
 func main() {
 	// Thread to listen to alive pings from data keepers
@@ -291,7 +335,7 @@ func main() {
 	// (1) Register to the master node
 	wg := sync.WaitGroup{}
 	// add 2 goroutines to the wait group
-	wg.Add(2)
+	wg.Add(3)
 	go func() {
 		defer wg.Done()
 		handleClient(&master)
@@ -299,6 +343,10 @@ func main() {
 	go func() {
 		defer wg.Done()
 		handleDataKeeper(&master)
+	}()
+	go func() {
+		defer wg.Done()
+		periodicCheckup(&master)
 	}()
 
 	// wait for all goroutines to finish

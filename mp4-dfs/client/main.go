@@ -5,6 +5,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
+	"sync"
+	"time"
 
 	// "net"
 	"os"
@@ -28,19 +31,35 @@ func newClientNode(socket_no string) clientNode{
 	}
 }
 
+
+var confirmationReceived bool // Shared variable to track confirmation status
+var fileReceived string // Shared variable to track confirmation status
+var confirmationMutex sync.Mutex // Mutex for concurrent access to the confirmation status
+
 // ConfirmUpload rpc
 func (c *clientNode) ConfirmUpload(ctx context.Context, in *upload.ConfirmUploadRequest) (*upload.ConfirmUploadResponse, error) {
+	confirmationMutex.Lock()
+	defer confirmationMutex.Unlock()
+	if fileReceived == ""{
+		return &upload.ConfirmUploadResponse{Status: "time_out"},nil
+	}
+
+	confirmationReceived = true
 	fileName:=in.GetFileName()
+	if fileName!=fileReceived{
+		return &upload.ConfirmUploadResponse{Status: "wrong_file"},nil
+	}
+	
 	fmt.Printf("Master Confirmed File %s being uploaded successfully\n",fileName)
-	return &upload.ConfirmUploadResponse{},nil
+	return &upload.ConfirmUploadResponse{Status: "success"},nil
 }
 
-func handleUploadFile(path string,socket string){
+func handleUploadFile(path string,socket string) error{
 
 	// Check if the file exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		fmt.Printf("File %s does not exist\n", path)
-		return
+		return err
 	}
 
 	filename := filepath.Base(path)
@@ -51,7 +70,7 @@ func handleUploadFile(path string,socket string){
 	if err != nil {
 		fmt.Println(err)
 		fmt.Printf("Can not connect to Master at %s\n", masterAddress)
-		return
+		return err
 	}
 	fmt.Printf("Connected To Master %s\n", masterAddress)
 
@@ -67,7 +86,7 @@ func handleUploadFile(path string,socket string){
 	})
 	if err!=nil{
 		fmt.Println("Failed to request port from Master", err)
-		return
+		return err
 	}
 
 	nodeSocket:=response.GetNodeSocket()
@@ -81,7 +100,7 @@ func handleUploadFile(path string,socket string){
 	connToDataNode, err := grpc.Dial(nodeSocket, grpc.WithInsecure())
 	if err != nil {
 		fmt.Printf("Could not Connect to DataNode at [%s]\n", nodeSocket)
-		return
+		return err
 	}
 	defer connToDataNode.Close()
 
@@ -90,6 +109,7 @@ func handleUploadFile(path string,socket string){
 
 	// Send File MetaData + Chunks
 	sendFile(path,uploadClient)
+	return nil
 }
 
 func sendFile(path string,uploadClient upload.UploadServiceClient){
@@ -152,12 +172,18 @@ func sendFile(path string,uploadClient upload.UploadServiceClient){
 			return
 		}
 	}
+	
 	// [FIX] Same Port Used by Client to call the DataNode
 	// fmt.Println("LOPPPS")
 	// for{}
-	//Sending EndOfFile
-	stream.CloseAndRecv()
 
+	//Sending EndOfFile
+	fmt.Println("Sending End Of File To DataNode")
+	_,err=stream.CloseAndRecv()
+	if err !=nil{
+		fmt.Println("Can not receive Upload File Response from DataNode ", err, stream.RecvMsg(nil))
+		return
+	}
 	fmt.Println("Finished Sending File 🧨")
 }
 
@@ -229,15 +255,34 @@ func main() {
 	port:="8085"
 	client_socket:=ip+":"+port
 
-	// client:=newClientNode(client_socket)
+	client:=newClientNode(client_socket)
 
-	// Create a channel for synchronization
-	// notifyChan := make(chan struct{})
+	master_listener, err := net.Listen("tcp", client_socket)
+	if err != nil {
+		fmt.Printf("Failed to Listen to %s\n",client_socket)
+		
+	}
+	defer master_listener.Close()
+	fmt.Printf("Listening to Socket: %s\n",client_socket)
+	
+	
+	s := grpc.NewServer()
+	// client := &clientNode{}
 
+	// Register to UploadService
+	upload.RegisterUploadServiceServer(s, &client)
+
+	//Serve Calls in a go routine
+	go func ()  {
+		if err := s.Serve(master_listener); err != nil {
+			fmt.Println(err)
+		}
+	}()
+	
 	for {
 		// Transfer type from user
 		// choose 1 for upload and 2 for download
-		fmt.Print("Enter 1 for upload and 2 for download: ")
+		fmt.Print("Enter 1 for upload and 2 for download:")
 		var choice int
 		fmt.Scanln(&choice)
 
@@ -245,52 +290,52 @@ func main() {
 			continue
 		}
 
+		fmt.Print("Enter file path: ")
+		var path string
+		fmt.Scanln(&path)
+		fileReceived=filepath.Base(path)
+
 		switch choice {
 		case 1:
-			fmt.Print("Enter file path: ")
-			var path string
-			fmt.Scanln(&path)
-			fmt.Print("Sending Upload Request ....\n")
+			// Add a variable to track whether confirmation is received
+			confirmationMutex.Lock()
+			confirmationReceived = false
+			confirmationMutex.Unlock() 
+
 			//Upload File
-			handleUploadFile(path,client_socket)
+			err:=handleUploadFile(path,client_socket)
+			if err!=nil{
+				confirmationMutex.Lock()
+				fileReceived=""
+				confirmationMutex.Unlock()
+				continue
+			}
 
-			// // Confirm File Upload
-			// master_listener, err := net.Listen("tcp", client_socket)
-			// if err != nil {
-			// 	fmt.Printf("Failed to Listen to %s client_socket\n",client_socket)
-				
-			// }
-			// fmt.Printf("Listening to Master at Socket: %s\n",client_socket)
-			
-			
-			// s := grpc.NewServer()
-			// // client := &clientNode{}
-			
-			// // Register to UploadService
-			// upload.RegisterUploadServiceServer(s, &client)
-			
-			// if err := s.Serve(master_listener); err != nil {
-			// 	fmt.Println(err)
-			// }
-			// // [TODO] Add Channel
-			// for {}
-			// master_listener.Close()
-			
+			//Wait For Confirm From Master
+			fmt.Println("Waiting for confirmation from server...")
+			attempts_count:=0
+			for{
+				confirmationMutex.Lock()
 
-			// ...
+				attempts_count+=1
+				if confirmationReceived {
+					confirmationMutex.Unlock()
+					fmt.Println("Video Uploaded Successfully 🎆")
+					break
+				}
+				if attempts_count>5{
+				// if attempts_count>2{
+					fileReceived=""
+					confirmationMutex.Unlock()
+					fmt.Println("Upload Failed please Try again")
+					break
+				}
+
+				confirmationMutex.Unlock()
+				// Sleep for 5 seconds before the next check
+				time.Sleep(5 * time.Second)
+			}
 		
-			// //(3) Await Master Confirmation
-			// fmt.Println("Waiting For Confirm From Master")
-			// _, err = confirm_file_transfer_client.ConfirmFileTransfer(context.Background(), &cf.ConfirmFileTransferRequest{
-			// 	FileName: filepath.Base(path),
-			// })
-			// if err != nil {
-			// 	fmt.Println("Upload Failed please Try again")
-			// 	fmt.Println(err)
-			// } else {
-			// 	fmt.Println("Video Uploaded Successfully 🎆")
-			// }
-
 		case 2:
 			fmt.Print("Enter file name: ")
 			var filename string

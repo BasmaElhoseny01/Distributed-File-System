@@ -31,7 +31,6 @@ func NewDataNode(Ip string,port string,ports []string) DataNode{
 		ports:ports,
 	}
 }
-
 type DataNodeLookUpTable struct{
 	mutex sync.RWMutex
 	data map[string]*DataNode //Map of key are strings and values are DataNodes
@@ -44,7 +43,6 @@ func NewDataNodeLookUpTable() DataNodeLookUpTable{
 		data:make(map[string]*DataNode),
 	}
 }
-
 // Add New DataNode
 func (store *DataNodeLookUpTable)AddDataNode(dataNode *DataNode) (string,error){
 	store.mutex.Lock()
@@ -69,7 +67,7 @@ func (store *DataNodeLookUpTable)AddDataNode(dataNode *DataNode) (string,error){
 func (store *DataNodeLookUpTable) PrintDataNodeInfo(data_node_id string )(string){
 	data_node:=store.data[data_node_id]
 
-	details := fmt.Sprintf("DataNode ID: %s, IP: %s, Ports: %s, Alive: %v, Ping Timestamp: %s, Load: %.2f",
+	details := fmt.Sprintf("[DataNode] ID: %s, IP: %s, Ports: %s, Alive: %v, Ping Timestamp: %s, Load: %.2f",
 	data_node.Id, data_node.Ip, strings.Join(data_node.ports, "-"), data_node.alive, data_node.ping_timestamp.Format(time.RFC3339), data_node.load)
 	return details
 }

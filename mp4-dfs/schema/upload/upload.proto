@@ -39,7 +39,9 @@ message NotifyMasterResponse{}
 message ConfirmUploadRequest{
     string file_name=1;
 }
-message ConfirmUploadResponse{}
+message ConfirmUploadResponse{
+    string status=1;
+}
 
 // Services
 service UploadService {
