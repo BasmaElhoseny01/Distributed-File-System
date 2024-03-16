@@ -127,7 +127,7 @@ func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadReque
 	file_name:=in.GetFileName()
 	fmt.Println("Received Download Request",file_name)
 	// check if file already exist
-	exists,node_1,_,_,_,_,_ :=s.files_lookup_table.GetFile(file_name)
+	exists,node_1,path_1,_,_,_,_ :=s.files_lookup_table.GetFile(file_name)
 	if exists == false {
 		// return error to client in response data
 		return  &download.DownloadServerResponse{Data: &download.DownloadServerResponse_Error{
@@ -138,17 +138,26 @@ func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadReque
 	Ip,Port:=s.data_node_lookup_table.GetNodeAddress(node_1)
 	// return data to client in response data
 	// create list of servers which contains ip and port
-	servers:= &download.ServerList{
-		Servers:[]* download.Server{
-			{
-				Ip:   Ip,
-				Port: Port,
-			},
+	servers := []*download.Server{
+		{
+			Ip:   Ip,
+			Port: Port,
+			FilePath: path_1,
 		},
+	}
+	// append another server to the list
+	servers = append(servers, &download.Server{
+		Ip:   "localhost",
+		Port: "5002",
+		FilePath: "path_2",
+	})
+
+	servers_list:= &download.ServerList{
+		Servers: servers,
 	}
 	return  &download.DownloadServerResponse{
 		Data: &download.DownloadServerResponse_Servers{
-			Servers: servers,
+			Servers: servers_list,
 		},
 	},nil
 }

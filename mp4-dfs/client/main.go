@@ -107,9 +107,6 @@ func handleUploadFile(dataNodeAddress string, path string) {
 	}
 }
 
-func handleDownloadFile(filename string) {
-	
-}
 func main() {
 	fmt.Println("Welcome Client 😊")
 
@@ -143,12 +140,11 @@ func main() {
 			continue
 		}
 
-		fmt.Print("Enter file path: ")
-		var path string
-		fmt.Scanln(&path)
-
 		switch choice {
 		case 1:
+			fmt.Print("Enter file path: ")
+			var path string
+			fmt.Scanln(&path)
 			fmt.Print("Sending Upload Request ....\n")
 			// (1) File Transfer Request
 			// Send MetaData For Video File
@@ -181,20 +177,14 @@ func main() {
 			fmt.Scanln(&filename)
 			fmt.Print("Downloading ....\n")
 			// (1) check if file exists on master
-			// response,err :=file_request_transfer_client.DownloadRequest(context.Background(), &download.DownloadFileRequest{
-			// 	FileName:  filepath.Base(path),
-			// })
 			response, err := download_request_transfer_client.GetServer(context.Background(), &download.DownloadRequest{
 				FileName: filename,
 			})
-			fmt.Println(response)
 			if err != nil {
 				fmt.Println("cannot request port from master to download the file", err)
 				break
 			}
 			// call get data from response
-			data := response.GetData()
-			fmt.Println(data)
 			file_exists := response.GetError()
 			if file_exists != "" {
 				fmt.Println("File does not exist")
@@ -206,9 +196,10 @@ func main() {
 				fmt.Println("No servers available")
 				break
 			}
-			// print servers
-			fmt.Println(servers)
-			// process servers ports
+			
+			servers_list := servers.Servers
+			// print servers list
+			fmt.Println("servers list",servers_list)
 		}
 	}
 }
