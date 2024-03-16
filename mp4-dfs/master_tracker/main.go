@@ -124,20 +124,6 @@ func (s *masterServer) NotifyMaster (ctx context.Context, in *upload.NotifyMaste
 	return &upload.NotifyMasterResponse{}, nil
 }
 
-// // Confirm File Transfer Services rpc
-// func (s *masterServer) ConfirmFileTransfer (ctx context.Context, in *cf.ConfirmFileTransferRequest) (*cf.ConfirmFileTransferResponse, error){
-// 	file_name:=in.GetFileName();
-// 	 // Try checking the condition 5 times with a 2-second interval
-// 	 for i := 0; i < 5; i++ {
-//         if exists := s.files_lookup_table.CheckFileExists(file_name); exists {
-//             return &cf.ConfirmFileTransferResponse{}, nil // File exists, return without error
-//         }
-//         time.Sleep(2 * time.Second) // Wait for 2 seconds before checking again
-//     }
-// 	// If the file doesn't exist after 5 attempts, return an error
-// 	return &cf.ConfirmFileTransferResponse{}, errors.New("file not found")
-// }
-
 func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadRequest) (*download.DownloadServerResponse, error) {
 	file_name:=in.GetFileName()
 	fmt.Println("Received Download Request",file_name)
@@ -233,6 +219,10 @@ func periodicCheckup(master *masterServer){
 		println("Checking UnConfirmed Files...")
 		unconfirmedFiles:=master.files_lookup_table.CheckUnConfirmedFiles()
 		println(unconfirmedFiles)
+		for _, file := range unconfirmedFiles{
+			master.sendClientConfirm(file)
+
+		}
 			
 			
 		// 	//3. Check For Replicas
@@ -241,6 +231,36 @@ func periodicCheckup(master *masterServer){
 		time.Sleep(5 * time.Second)
 	}
 
+}
+
+func (s *masterServer) sendClientConfirm(fileName string){
+	// Send Notification to Client
+	// GetSocket for teh Client 
+	client_socket:=s.client_lookup_table.GetClientSocket(fileName)
+	//1. Establish Connection to the Master
+	connToClient, err := grpc.Dial(client_socket, grpc.WithInsecure())
+	if err != nil {
+		fmt.Printf("Can not connect to Client at %s error: %v \n", client_socket,err)
+	}
+	defer func() {
+		connToClient.Close()
+		fmt.Printf("Closed Connection To Client %s\n", client_socket)
+	}()
+	fmt.Printf("Connected To Client %s\n", client_socket)
+
+	file_confirm_client:=upload.NewUploadServiceClient(connToClient)
+	fmt.Print("Sending Notification To Client ....\n")
+	
+	_, err=file_confirm_client.ConfirmUpload(context.Background(),&upload.ConfirmUploadRequest{})
+	
+	if err!=nil{
+		fmt.Println("Failed to Send Notification to Client", err)
+		return 
+	}
+
+	// // Remove Client
+	// s.client_lookup_table.RemoveClient(fileName)
+	// fmt.Print("Removed Client :D\n")
 }
 
 func main() {
