@@ -72,7 +72,7 @@ func (store *FileLookUpTable)AddFile(mp4file *File) (error){
 func (store *FileLookUpTable) PrintFileInfo(fileName string )(string){
 	file:=store.data[fileName]
 
-	details := fmt.Sprintf("File Name: %s, at node [%s] in %s ,at node [%s] in %s ,at node [%s] in %s",
+	details := fmt.Sprintf("[File] Name: %s, at node [%s] in %s ,at node [%s] in %s ,at node [%s] in %s",
 	file.file_name, file.data_node_1, file.path_1,file.replica_node_2,file.path_2,file.replica_node_3,file.path_3)
 	return details
 }

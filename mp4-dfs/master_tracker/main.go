@@ -86,7 +86,7 @@ func (s *masterServer) RequestUpload (ctx context.Context, in *upload.RequestUpl
 	// Get the data node with the least load
 	node_socket,err:=s.data_node_lookup_table.GetLeastLoadedNode()
 	if err != nil {
-		fmt.Printf("Can'r Get DataNode Port %v\n",err)
+		fmt.Printf("Can not Get DataNode Port %v\n",err)
 		return  &upload.RequestUploadResponse{},err
 	}
 
@@ -119,34 +119,7 @@ func (s *masterServer) NotifyMaster (ctx context.Context, in *upload.NotifyMaste
 	}
 	fmt.Printf("New File added Successfully\n")
 	fmt.Println(s.files_lookup_table.PrintFileInfo(fileName))
-
-	// // Send Notification to Client
-	// // GetSocket for teh Client 
-	// client_socket:=s.client_lookup_table.GetClientSocket(fileName)
-	// //1. Establish Connection to the Master
-	// connToClient, err := grpc.Dial(client_socket, grpc.WithInsecure())
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	fmt.Printf("Can not connect to Master at %s\n", client_socket)
-	// 	return &upload.NotifyMasterResponse{}, err
-	// }
-	// fmt.Printf("Connected To Master %s\n", client_socket)
-
-	// confirm_client:=upload.NewUploadServiceClient(connToClient)
 	
-	// fmt.Print("Sending Notification To Client ....\n")
-	// _, err=confirm_client.ConfirmUpload(context.Background(),&upload.ConfirmUploadRequest{})
-	// if err!=nil{
-	// 	fmt.Println("Failed to Send Notification to Client", err)
-	// 	return &upload.NotifyMasterResponse{}, err
-	// }
-	// // Remove Client
-	// s.client_lookup_table.RemoveClient(fileName)
-	// fmt.Print("Removed Client :D\n")
-
-
-	// // [TODO] Check Replica
-
 	return &upload.NotifyMasterResponse{}, nil
 }
 

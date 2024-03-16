@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 
 	// "net"
 	"os"
@@ -156,9 +157,16 @@ func sendFile(path string,uploadClient upload.UploadServiceClient){
 	// fmt.Println("LOPPPS")
 	// for{}
 	//Sending EndOfFile
-	stream.CloseAndRecv()
+	fmt.Println("Sending End Of File To DataNode")
+	_,err=stream.CloseAndRecv()
+	if err !=nil{
+		fmt.Println("Can not receive Upload File Response from DataNode ", err, stream.RecvMsg(nil))
+		return
+	}
+	fmt.Println("Received Upload File Response from DataNode [EOF is Sent to the DataNode]")
 
-	fmt.Println("Finished Sending File 🧨")
+
+	// fmt.Println("Finished Sending File 🧨")
 }
 
 
@@ -176,8 +184,30 @@ func main() {
 	port:="8085"
 	client_socket:=ip+":"+port
 
-	// client:=newClientNode(client_socket)
+	client:=newClientNode(client_socket)
 
+	master_listener, err := net.Listen("tcp", client_socket)
+	if err != nil {
+		fmt.Printf("Failed to Listen to %s\n",client_socket)
+		
+	}
+	defer master_listener.Close()
+	fmt.Printf("Listening to Socket: %s\n",client_socket)
+	
+	
+	s := grpc.NewServer()
+	// client := &clientNode{}
+
+	// Register to UploadService
+	upload.RegisterUploadServiceServer(s, &client)
+
+	//Serve Calls in a go routine
+	go func ()  {
+		if err := s.Serve(master_listener); err != nil {
+			fmt.Println(err)
+		}
+	}()
+	
 	// Create a channel for synchronization
 	// notifyChan := make(chan struct{})
 
@@ -201,24 +231,11 @@ func main() {
 			//Upload File
 			handleUploadFile(path,client_socket)
 
+			//Wait For Confirm From Master
+			fmt.Println("Waiting for confirmation from server...")
+			for{}
+
 			// // Confirm File Upload
-			// master_listener, err := net.Listen("tcp", client_socket)
-			// if err != nil {
-			// 	fmt.Printf("Failed to Listen to %s client_socket\n",client_socket)
-				
-			// }
-			// fmt.Printf("Listening to Master at Socket: %s\n",client_socket)
-			
-			
-			// s := grpc.NewServer()
-			// // client := &clientNode{}
-			
-			// // Register to UploadService
-			// upload.RegisterUploadServiceServer(s, &client)
-			
-			// if err := s.Serve(master_listener); err != nil {
-			// 	fmt.Println(err)
-			// }
 			// // [TODO] Add Channel
 			// for {}
 			// master_listener.Close()

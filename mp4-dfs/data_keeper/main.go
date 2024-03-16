@@ -50,7 +50,6 @@ func NewNodeKeeperServer(id string,ip string, port string, ports[]string) *nodeK
 
 // UploadFile rpc [client-streaming]
 func (s *nodeKeeperServer) UploadFile(stream upload.UploadService_UploadFileServer) error{
-
 	// Receive Video Info
 	req, err := stream.Recv()
 	if err!=nil{
@@ -98,26 +97,28 @@ func (s *nodeKeeperServer) UploadFile(stream upload.UploadService_UploadFileServ
 	}
 	
 	
-	//Close Connection
+	//Send Final Response Close Connection With The Client
 	err = stream.SendAndClose(&upload.UploadFileResponse{})
 	if err != nil {
 		fmt.Printf("Can not send Close response: %v\n", err)
 		return err
 	}
-
+	fmt.Println("Connection With Client is Closed :D")
 
 	//(2) [TODO]Confirm To master the File Transfer
 	// Establish Connection To Master
 	masterAddress:=utils.GetMasterIP("node")
 	connToMaster, err := grpc.Dial(masterAddress, grpc.WithInsecure())
 	if err != nil {
-		fmt.Printf("Can not connect to Master at %s\n",connToMaster)
+		fmt.Printf("Can not connect to Master at %s\n",masterAddress)
 		return err
 	}
 	fmt.Println("Connected To Master at", masterAddress)
 
 	// Register to Upload File Service with master as server
 	upload_file_client :=upload.NewUploadServiceClient(connToMaster)
+	fmt.Printf("Sending File %s Upload Confirm To Master .....\n", fileName)
+
 	_,err=upload_file_client.NotifyMaster(context.Background(),&upload.NotifyMasterRequest{
 		NodeId: s.Id,
 		FileName: fileName,
@@ -128,8 +129,10 @@ func (s *nodeKeeperServer) UploadFile(stream upload.UploadService_UploadFileServ
 		// [TODO] Delete the file because saving is useless
 		return err
 	}
-	fmt.Printf("Sent Confirm Upload File: %s To Master\n",fileName)
+	fmt.Printf("Sent File %s Upload Confirm To Master\n",fileName)
 	connToMaster.Close()
+	fmt.Printf("Closed Connection to Master at %s ",masterAddress)
+
 	return nil
 }
 

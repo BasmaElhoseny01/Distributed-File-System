@@ -54,7 +54,7 @@ func (store *ClientLookUpTable)GetClientSocket(fileName string) (string){
 func (store *ClientLookUpTable) PrintClientInfo(fileName string )(string){
 	client:=store.data[fileName]
 
-	details := fmt.Sprintf("Client at %s, Waiting for %s",
+	details := fmt.Sprintf("[Client] at %s, Waiting for %s",
 	client.socket, fileName)
 	return details
 }
