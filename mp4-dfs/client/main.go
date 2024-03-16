@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
+	"time"
 
 	// "net"
 	"os"
@@ -29,10 +31,20 @@ func newClientNode(socket_no string) clientNode{
 	}
 }
 
+
+var confirmationReceived bool // Shared variable to track confirmation status
+var confirmationMutex sync.Mutex // Mutex for concurrent access to the confirmation status
+
 // ConfirmUpload rpc
 func (c *clientNode) ConfirmUpload(ctx context.Context, in *upload.ConfirmUploadRequest) (*upload.ConfirmUploadResponse, error) {
+	confirmationMutex.Lock()
+	defer confirmationMutex.Unlock()
+
+	confirmationReceived = true
 	fileName:=in.GetFileName()
+
 	fmt.Printf("Master Confirmed File %s being uploaded successfully\n",fileName)
+	println(confirmationReceived)
 	return &upload.ConfirmUploadResponse{},nil
 }
 
@@ -228,33 +240,34 @@ func main() {
 
 		switch choice {
 		case 1:
+			// Add a variable to track whether confirmation is received
+			confirmationMutex.Lock()
+			confirmationReceived = false
+			confirmationMutex.Unlock() 
+
 			//Upload File
 			handleUploadFile(path,client_socket)
 
 			//Wait For Confirm From Master
 			fmt.Println("Waiting for confirmation from server...")
-			for{}
+			for{
+				confirmationMutex.Lock()
+				println("confirmationReceived",confirmationReceived)
+				if confirmationReceived {
+					confirmationMutex.Unlock()
+					break
+				}
+				confirmationMutex.Unlock()
 
-			// // Confirm File Upload
-			// // [TODO] Add Channel
-			// for {}
-			// master_listener.Close()
-			
-
-			// ...
-		
-			// //(3) Await Master Confirmation
-			// fmt.Println("Waiting For Confirm From Master")
-			// _, err = confirm_file_transfer_client.ConfirmFileTransfer(context.Background(), &cf.ConfirmFileTransferRequest{
-			// 	FileName: filepath.Base(path),
-			// })
+				// Sleep for 5 seconds before the next check
+				time.Sleep(5 * time.Second)
+			}
+			fmt.Println("Video Uploaded Successfully 🎆")
 			// if err != nil {
-			// 	fmt.Println("Upload Failed please Try again")
+				// fmt.Println("Upload Failed please Try again")
 			// 	fmt.Println(err)
 			// } else {
-			// 	fmt.Println("Video Uploaded Successfully 🎆")
-			// }
-
+		
 		case 2:
 			// fmt.Print("Enter file name: ")
 			// var filename string

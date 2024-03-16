@@ -131,7 +131,7 @@ func (s *nodeKeeperServer) UploadFile(stream upload.UploadService_UploadFileServ
 	}
 	fmt.Printf("Sent File %s Upload Confirm To Master\n",fileName)
 	connToMaster.Close()
-	fmt.Printf("Closed Connection to Master at %s ",masterAddress)
+	fmt.Printf("Closed Connection to Master at %s\n",masterAddress)
 
 	return nil
 }
