@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -42,19 +41,17 @@ func (c *clientNode) ConfirmUpload(ctx context.Context, in *upload.ConfirmUpload
 	confirmationMutex.Lock()
 	defer confirmationMutex.Unlock()
 	if fileReceived == ""{
-		return &upload.ConfirmUploadResponse{Status: "time_out"},errors.New("client time out")
+		return &upload.ConfirmUploadResponse{Status: "time_out"},nil
 	}
 
 	confirmationReceived = true
 	fileName:=in.GetFileName()
 	if fileName!=fileReceived{
-		return &upload.ConfirmUploadResponse{
-			Status: "wrong_file",
-		},fmt.Errorf("client expected confirmation for %s but master sent confirmation for %s",fileName,fileReceived)
+		return &upload.ConfirmUploadResponse{Status: "wrong_file"},nil
 	}
 	
 	fmt.Printf("Master Confirmed File %s being uploaded successfully\n",fileName)
-	return &upload.ConfirmUploadResponse{},nil
+	return &upload.ConfirmUploadResponse{Status: "success"},nil
 }
 
 func handleUploadFile(path string,socket string) error{

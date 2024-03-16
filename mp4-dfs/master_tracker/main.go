@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -251,30 +252,42 @@ func (s *masterServer) sendClientConfirm(fileName string){
 	file_confirm_client:=upload.NewUploadServiceClient(connToClient)
 	fmt.Print("Sending Notification To Client ....\n")
 	
-	// println("Sleeping")
+	println("Sleeping")
 	// time.Sleep(50 * time.Second)
-	// println("GoodMorning")
+	time.Sleep(10 * time.Second)
+	println("GoodMorning")
 
 	res, err:=file_confirm_client.ConfirmUpload(context.Background(),&upload.ConfirmUploadRequest{
 		FileName: fileName,
 	})
-
 	if err!=nil{
 		fmt.Println("Failed to Send Notification to Client", err)
-		res_status:=res.GetStatus()
-		println("res_status",res_status)
-
-		if res_status=="time_out"{
-			println("Time OUT")
-			//[TODO] Drop File Because the client will resend it
-			
-		}
-		if res_status=="wrong_file"{
-			println("WRONGfile")
-			// [TODO] Wrong file		
-		}
-		return 
+		return
 	}
+
+	response_status:=res.GetStatus()
+
+	
+	if response_status=="time_out"{
+		fmt.Printf("File %s Confirmation is TimedOut So We will Drop it\n",fileName)
+		//Remove File
+		s.files_lookup_table.RemoveFile(fileName)
+
+		// Tell Data Node to Remove
+
+		// Remove Client
+		s.client_lookup_table.RemoveClient(fileName)
+
+		return
+	}
+	if response_status=="wrong_file"{
+		println("WRONGfile Between expected by Node and ConfirmationSent [Syntax Error]")
+		os.Exit(1)
+		// [TODO] Wrong file Confirmation Handling
+
+		return
+	}
+	
 	//Update File as Confirmed
 	s.files_lookup_table.ConfirmFile(fileName)
 	// Remove Client

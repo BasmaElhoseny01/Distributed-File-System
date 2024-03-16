@@ -103,3 +103,12 @@ func(store *FileLookUpTable) ConfirmFile(fileName string)(){
 	store.data[fileName].confirmed=true
 	return
 }
+
+
+//Remove File
+func(store *FileLookUpTable) RemoveFile(fileName string)(){
+	store.mutex.Lock()
+    defer store.mutex.Unlock()
+    delete(store.data, fileName)
+	return
+}
