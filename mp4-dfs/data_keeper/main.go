@@ -39,13 +39,11 @@ type nodeKeeperServer struct {
 	download.UnimplementedDownloadServiceServer
 	Id string
 	Ip string
-	port string //[FIX]
 	ports []string
 }
 
-// [FIX]
-func NewNodeKeeperServer(id string,ip string, port string, ports[]string) *nodeKeeperServer {
-	return &nodeKeeperServer{Id:id, Ip: ip, port: port,ports:ports }
+func NewNodeKeeperServer(id string,ip string, ports[]string) *nodeKeeperServer {
+	return &nodeKeeperServer{Id:id, Ip: ip,ports:ports }
 }
 
 // UploadFile rpc [client-streaming]
@@ -235,7 +233,7 @@ func handleClient(ip string ,ports []string){
 	fmt.Println("Handle Client")
 	
 	// Define NodeKeeperServer
-	data_keeper := NewNodeKeeperServer(id,ip, "-1",ports)
+	data_keeper := NewNodeKeeperServer(id,ip,ports)
 
 	// define Data Keeper Server and register the service
 	s := grpc.NewServer()

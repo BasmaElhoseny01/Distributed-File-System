@@ -18,16 +18,13 @@ type DataNode struct {
 	load float32
 
 	Ip string
-	port string //[FIX] Remove
 	ports []string
 }
 
-// [FIX] Remove port
-func NewDataNode(Ip string,port string,ports []string) DataNode{
+func NewDataNode(Ip string,ports []string) DataNode{
 	return DataNode{
 		Id: "",
 		Ip: Ip,
-		port: port,
 		ports:ports,
 	}
 }

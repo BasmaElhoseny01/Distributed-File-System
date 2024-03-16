@@ -50,8 +50,7 @@ func NewMasterServer() masterServer{
 // DataKeepersNodes Registration Services rpc
 func (s *masterServer) Register(ctx context.Context, in *reg.DataKeeperRegisterRequest) (*reg.DataKeeperRegisterResponse, error) {
 	// Add the data node to the lookup table
-	// [FIX] Remove in.GetPort()
-	new_data_node:=data_lookup.NewDataNode(in.GetIp(),in.GetPort(),in.GetPorts())
+	new_data_node:=data_lookup.NewDataNode(in.GetIp(),in.GetPorts())
 	node_id, err := s.data_node_lookup_table.AddDataNode(&new_data_node)
 	if err!=nil{
 		fmt.Printf("Error When adding new Data Node with ID: %s",node_id)
@@ -92,7 +91,7 @@ func (s *masterServer) RequestUpload (ctx context.Context, in *upload.RequestUpl
 		return  &upload.RequestUploadResponse{},err
 	}
 
-	// [FIX]Save The Socket for that client
+	// Save The Socket for that client
 	client_socket:=in.GetClientSocket()
 	err=s.client_lookup_table.AddClient(file_name,client_socket)
 
