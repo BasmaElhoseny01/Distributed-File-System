@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -119,7 +120,7 @@ func (s *masterServer) NotifyMaster (ctx context.Context, in *upload.NotifyMaste
 	}
 	fmt.Printf("New File added Successfully\n")
 	fmt.Println(s.files_lookup_table.PrintFileInfo(fileName))
-	
+
 	return &upload.NotifyMasterResponse{}, nil
 }
 
@@ -223,6 +224,24 @@ func handleDataKeeper(master *masterServer) {
 	}
 	fmt.Println("Handle Data Keeper finished")
 }
+func periodicCheckup(master *masterServer){
+	for{
+		println("Periodic Checkup")
+		//1. Check Ideal DataNodes
+
+		// 2.Sent Notifications to Clients
+		println("Checking UnConfirmed Files...")
+		unconfirmedFiles:=master.files_lookup_table.CheckUnConfirmedFiles()
+		println(unconfirmedFiles)
+			
+			
+		// 	//3. Check For Replicas
+
+		// Sleep for 5 seconds before the next check
+		time.Sleep(5 * time.Second)
+	}
+
+}
 
 func main() {
 	// Thread to listen to alive pings from data keepers
@@ -232,7 +251,7 @@ func main() {
 	// (1) Register to the master node
 	wg := sync.WaitGroup{}
 	// add 2 goroutines to the wait group
-	wg.Add(2)
+	wg.Add(3)
 	go func() {
 		defer wg.Done()
 		handleClient(&master)
@@ -240,6 +259,10 @@ func main() {
 	go func() {
 		defer wg.Done()
 		handleDataKeeper(&master)
+	}()
+	go func() {
+		defer wg.Done()
+		periodicCheckup(&master)
 	}()
 
 	// wait for all goroutines to finish
