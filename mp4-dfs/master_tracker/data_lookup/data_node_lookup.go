@@ -31,7 +31,6 @@ func NewDataNode(Ip string,port string,ports []string) DataNode{
 		ports:ports,
 	}
 }
-
 type DataNodeLookUpTable struct{
 	mutex sync.RWMutex
 	data map[string]*DataNode //Map of key are strings and values are DataNodes
@@ -44,7 +43,6 @@ func NewDataNodeLookUpTable() DataNodeLookUpTable{
 		data:make(map[string]*DataNode),
 	}
 }
-
 // Add New DataNode
 func (store *DataNodeLookUpTable)AddDataNode(dataNode *DataNode) (string,error){
 	store.mutex.Lock()

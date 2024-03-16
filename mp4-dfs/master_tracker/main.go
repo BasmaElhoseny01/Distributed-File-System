@@ -236,7 +236,7 @@ func periodicCheckup(master *masterServer){
 
 func (s *masterServer) sendClientConfirm(fileName string){
 	// Send Notification to Client
-	// GetSocket for teh Client 
+	// GetSocket for the Client 
 	client_socket:=s.client_lookup_table.GetClientSocket(fileName)
 	//1. Establish Connection to the Master
 	connToClient, err := grpc.Dial(client_socket, grpc.WithInsecure())
@@ -252,10 +252,10 @@ func (s *masterServer) sendClientConfirm(fileName string){
 	file_confirm_client:=upload.NewUploadServiceClient(connToClient)
 	fmt.Print("Sending Notification To Client ....\n")
 	
-	println("Sleeping")
+	// println("Sleeping")
 	// time.Sleep(50 * time.Second)
-	time.Sleep(10 * time.Second)
-	println("GoodMorning")
+	// // time.Sleep(10 * time.Second)
+	// println("GoodMorning")
 
 	res, err:=file_confirm_client.ConfirmUpload(context.Background(),&upload.ConfirmUploadRequest{
 		FileName: fileName,
@@ -273,7 +273,7 @@ func (s *masterServer) sendClientConfirm(fileName string){
 		//Remove File
 		s.files_lookup_table.RemoveFile(fileName)
 
-		// Tell Data Node to Remove
+		//[TODO Extra Send Request to DataNode to Remove the FIle Uploaded]
 
 		// Remove Client
 		s.client_lookup_table.RemoveClient(fileName)
@@ -281,7 +281,7 @@ func (s *masterServer) sendClientConfirm(fileName string){
 		return
 	}
 	if response_status=="wrong_file"{
-		println("WRONGfile Between expected by Node and ConfirmationSent [Syntax Error]")
+		println("WRONG file Between expected by Node and ConfirmationSent [Syntax Error]")
 		os.Exit(1)
 		// [TODO] Wrong file Confirmation Handling
 

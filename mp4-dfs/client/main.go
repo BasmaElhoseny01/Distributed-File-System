@@ -172,9 +172,11 @@ func sendFile(path string,uploadClient upload.UploadServiceClient){
 			return
 		}
 	}
+	
 	// [FIX] Same Port Used by Client to call the DataNode
 	// fmt.Println("LOPPPS")
 	// for{}
+
 	//Sending EndOfFile
 	fmt.Println("Sending End Of File To DataNode")
 	_,err=stream.CloseAndRecv()
@@ -182,10 +184,7 @@ func sendFile(path string,uploadClient upload.UploadServiceClient){
 		fmt.Println("Can not receive Upload File Response from DataNode ", err, stream.RecvMsg(nil))
 		return
 	}
-	fmt.Println("Received Upload File Response from DataNode [EOF is Sent to the DataNode]")
-
-
-	// fmt.Println("Finished Sending File 🧨")
+	fmt.Println("Finished Sending File 🧨")
 }
 
 
@@ -227,9 +226,6 @@ func main() {
 		}
 	}()
 	
-	// Create a channel for synchronization
-	// notifyChan := make(chan struct{})
-
 	for {
 		// Transfer type from user
 		// choose 1 for upload and 2 for download
@@ -274,8 +270,8 @@ func main() {
 					fmt.Println("Video Uploaded Successfully 🎆")
 					break
 				}
-				// if attempts_count>5{
-				if attempts_count>2{
+				if attempts_count>5{
+				// if attempts_count>2{
 					fileReceived=""
 					confirmationMutex.Unlock()
 					fmt.Println("Upload Failed please Try again")
