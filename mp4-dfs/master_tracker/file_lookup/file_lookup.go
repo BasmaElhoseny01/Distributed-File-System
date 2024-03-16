@@ -10,10 +10,10 @@ type File struct {
 	file_name      string
 	data_node_1    string
 	path_1         string
-	// replica_node_2 string
-	// path_2         string
-	// replica_node_3 string
-	// path_3         string
+	replica_node_2 string
+	path_2         string
+	replica_node_3 string
+	path_3         string
 }
 
 func NewFile(file_name string, data_node_1 string,path_1 string) File {
@@ -21,10 +21,10 @@ func NewFile(file_name string, data_node_1 string,path_1 string) File {
 		file_name:    file_name,
 		data_node_1:  data_node_1,
 		path_1:       path_1,
-		// replica_node_2: "-1",
-		// path_2:"",
-		// replica_node_3: "-1",
-		// path_3:"",
+		replica_node_2: "-1",  //[FIX]
+		path_2:"", //[FIX]
+		replica_node_3: "-1", //[FIX]
+		path_3:"", //[FIX]
 	}
 }
 
@@ -66,4 +66,13 @@ func (store *FileLookUpTable)AddFile(mp4file *File) (error){
 		fmt.Printf("Key: %s, Value: %v\n", key, value)
 	}
 	return nil
+}
+
+//Get Info
+func (store *FileLookUpTable) PrintFileInfo(fileName string )(string){
+	file:=store.data[fileName]
+
+	details := fmt.Sprintf("File Name: %s, at node [%s] in %s ,at node [%s] in %s ,at node [%s] in %s",
+	file.file_name, file.data_node_1, file.path_1,file.replica_node_2,file.path_2,file.replica_node_3,file.path_3)
+	return details
 }

@@ -65,6 +65,7 @@ func (store *DataNodeLookUpTable)AddDataNode(dataNode *DataNode) (string,error){
 	return dataNode.Id,nil
 }
 
+//Get Info
 func (store *DataNodeLookUpTable) PrintDataNodeInfo(data_node_id string )(string){
 	data_node:=store.data[data_node_id]
 

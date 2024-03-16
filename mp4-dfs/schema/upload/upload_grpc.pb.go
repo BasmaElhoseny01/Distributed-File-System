@@ -24,8 +24,8 @@ const _ = grpc.SupportPackageIsVersion7
 type UploadServiceClient interface {
 	RequestUpload(ctx context.Context, in *RequestUploadRequest, opts ...grpc.CallOption) (*RequestUploadResponse, error)
 	UploadFile(ctx context.Context, opts ...grpc.CallOption) (UploadService_UploadFileClient, error)
-	NotifyMaster(ctx context.Context, in *NotifyMasterRequest, opts ...grpc.CallOption) (*NotifyMasterReponse, error)
-	NotifyClient(ctx context.Context, in *NotifyClientRequest, opts ...grpc.CallOption) (*NotifyClientReponse, error)
+	NotifyMaster(ctx context.Context, in *NotifyMasterRequest, opts ...grpc.CallOption) (*NotifyMasterResponse, error)
+	NotifyClient(ctx context.Context, in *NotifyClientRequest, opts ...grpc.CallOption) (*NotifyClientResponse, error)
 }
 
 type uploadServiceClient struct {
@@ -79,8 +79,8 @@ func (x *uploadServiceUploadFileClient) CloseAndRecv() (*UploadFileResponse, err
 	return m, nil
 }
 
-func (c *uploadServiceClient) NotifyMaster(ctx context.Context, in *NotifyMasterRequest, opts ...grpc.CallOption) (*NotifyMasterReponse, error) {
-	out := new(NotifyMasterReponse)
+func (c *uploadServiceClient) NotifyMaster(ctx context.Context, in *NotifyMasterRequest, opts ...grpc.CallOption) (*NotifyMasterResponse, error) {
+	out := new(NotifyMasterResponse)
 	err := c.cc.Invoke(ctx, "/upload.UploadService/NotifyMaster", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -88,8 +88,8 @@ func (c *uploadServiceClient) NotifyMaster(ctx context.Context, in *NotifyMaster
 	return out, nil
 }
 
-func (c *uploadServiceClient) NotifyClient(ctx context.Context, in *NotifyClientRequest, opts ...grpc.CallOption) (*NotifyClientReponse, error) {
-	out := new(NotifyClientReponse)
+func (c *uploadServiceClient) NotifyClient(ctx context.Context, in *NotifyClientRequest, opts ...grpc.CallOption) (*NotifyClientResponse, error) {
+	out := new(NotifyClientResponse)
 	err := c.cc.Invoke(ctx, "/upload.UploadService/NotifyClient", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -103,8 +103,8 @@ func (c *uploadServiceClient) NotifyClient(ctx context.Context, in *NotifyClient
 type UploadServiceServer interface {
 	RequestUpload(context.Context, *RequestUploadRequest) (*RequestUploadResponse, error)
 	UploadFile(UploadService_UploadFileServer) error
-	NotifyMaster(context.Context, *NotifyMasterRequest) (*NotifyMasterReponse, error)
-	NotifyClient(context.Context, *NotifyClientRequest) (*NotifyClientReponse, error)
+	NotifyMaster(context.Context, *NotifyMasterRequest) (*NotifyMasterResponse, error)
+	NotifyClient(context.Context, *NotifyClientRequest) (*NotifyClientResponse, error)
 	mustEmbedUnimplementedUploadServiceServer()
 }
 
@@ -118,10 +118,10 @@ func (UnimplementedUploadServiceServer) RequestUpload(context.Context, *RequestU
 func (UnimplementedUploadServiceServer) UploadFile(UploadService_UploadFileServer) error {
 	return status.Errorf(codes.Unimplemented, "method UploadFile not implemented")
 }
-func (UnimplementedUploadServiceServer) NotifyMaster(context.Context, *NotifyMasterRequest) (*NotifyMasterReponse, error) {
+func (UnimplementedUploadServiceServer) NotifyMaster(context.Context, *NotifyMasterRequest) (*NotifyMasterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NotifyMaster not implemented")
 }
-func (UnimplementedUploadServiceServer) NotifyClient(context.Context, *NotifyClientRequest) (*NotifyClientReponse, error) {
+func (UnimplementedUploadServiceServer) NotifyClient(context.Context, *NotifyClientRequest) (*NotifyClientResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NotifyClient not implemented")
 }
 func (UnimplementedUploadServiceServer) mustEmbedUnimplementedUploadServiceServer() {}

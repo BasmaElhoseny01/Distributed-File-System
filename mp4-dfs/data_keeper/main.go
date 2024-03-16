@@ -66,8 +66,6 @@ func (s *nodeKeeperServer) UploadFile(stream upload.UploadService_UploadFileServ
 	videoSize:=0
 
 	for{
-		fmt.Println("Waiting to receive more data")
-
 		req,err:=stream.Recv()
 		if err == io.EOF{
 			fmt.Println("Received EOF")
@@ -104,101 +102,36 @@ func (s *nodeKeeperServer) UploadFile(stream upload.UploadService_UploadFileServ
 	err = stream.SendAndClose(&upload.UploadFileResponse{})
 	if err != nil {
 		fmt.Printf("Can not send Close response: %v\n", err)
+		return err
 	}
 
 
 	//(2) [TODO]Confirm To master the File Transfer
+	// Establish Connection To Master
+	masterAddress:=utils.GetMasterIP("node")
+	connToMaster, err := grpc.Dial(masterAddress, grpc.WithInsecure())
+	if err != nil {
+		fmt.Println("Can not connect to Master at %s\n",connToMaster)
+		return err
+	}
+	fmt.Println("Connected To Master at", masterAddress)
+
+	// Register to Upload File Service with master as server
+	upload_file_client :=upload.NewUploadServiceClient(connToMaster)
+	_,err=upload_file_client.NotifyMaster(context.Background(),&upload.NotifyMasterRequest{
+		NodeId: s.Id,
+		FileName: fileName,
+		FilePath: savePath,
+	})
+	if err!=nil{
+		fmt.Printf("Failed to Notify Master with uploading file %s %v\n",fileName,err)
+		// [TODO] Delete the file because saving is useless
+		return err
+	}
+	fmt.Printf("Sent Confirm Upload File: %s To Master\n",fileName)
+	connToMaster.Close()
 	return nil
 }
-// // FileTransfer Services rpc [client-streaming] RPC
-// func (s *nodeKeeperServer) UploadFile(stream tr.FileTransferService_UploadFileServer) error {
-// 	fmt.Println("Data: Received Uploading")
-
-// 	// Receive Video Info
-// 	req, err := stream.Recv()
-// 	if err!=nil{
-// 		fmt.Println("cannot receive file data",err)
-// 		return err
-// 	}
-
-// 	fileName :=req.GetInfo().GetName()
-// 	fmt.Println("received an upload-video request for file",fileName)
-
-// 	// Receive Chunks
-// 	video := bytes.Buffer{}
-// 	videoSize:=0
-
-// 	for {
-// 		fmt.Println("Waiting to receive more data")
-
-// 		req,err:=stream.Recv()
-// 		if err == io.EOF{
-// 			fmt.Println("No more Data")
-// 			break
-// 		}
-// 		if err != nil {
-// 			fmt.Println("cannot receive chunk data",err)
-// 			return err
-// 		}
-
-// 		chunk:=req.GetChuckData()
-// 		size := len(chunk)
-// 		videoSize+=size
-
-// 		fmt.Printf("received a chunk with size: %d\n", size)
-
-// 		// Write the new chunk
-// 		_,err=video.Write(chunk)
-// 		if err!=nil{
-// 			fmt.Println("cannot write chunk data",err)
-// 			return err
-// 		}
-// 	}
-
-// 	// Save To Disk
-// 	savePath:=s.Id+"/"+fileName
-// 	err = writeVideoToDisk(savePath,video)
-// 	if err !=nil{
-// 		return err
-// 	}
-
-// 	res := &tr.UploadVideoResponse{
-// 		Size: uint32(videoSize),
-// 	}
-
-// 	err = stream.SendAndClose(res)
-// 	if err != nil {
-// 		fmt.Printf("cannot send response: %v\n", err)
-// 	}
-
-// 	// (2) Confirm To master the File Transfer
-// 	handleConfirmToMaster(s.Id,fileName,savePath)
-
-// 	return nil
-// }
-// func handleConfirmToMaster(data_node_id string,file_name string, file_path string){
-// 	// [TODO] Fix This Replication to connection
-// 	//Establish Connection to Master Node
-// 	masterAddress := "localhost:5002"
-
-// 	connToMaster, err := grpc.Dial(masterAddress, grpc.WithInsecure())
-// 	if err != nil {
-// 		fmt.Println(err)
-// 	}
-// 	defer connToMaster.Close()
-
-// 	// Register To Confirm File Transfer Service
-// 	finish_file_transfer_client :=fi.NewFinishFileTransferServiceClient(connToMaster)
-
-// 	_,err = finish_file_transfer_client.FinishFileUpload(context.Background(),&fi.FinishFileUploadRequest{
-// 		DataNodeId: data_node_id,
-// 		FileName: file_name,
-// 		FilePath: file_path,
-// 	})
-// 	if err!=nil{
-// 		fmt.Print("Failed to Send Finish Upload File Request To Master:",err)
-// 	}
-// }
 
 func writeVideoToDisk(filePath string,fileData bytes.Buffer) error{
 
@@ -355,13 +288,13 @@ func main() {
 
 	// 2. Connect To Master
 	masterAddress:=utils.GetMasterIP("node")
-	fmt.Println("Master Node Socket:", masterAddress)
+	fmt.Println("Connected To Master at", masterAddress)
+
 
 	connToMaster, err := grpc.Dial(masterAddress, grpc.WithInsecure())
 	if err != nil {
 		fmt.Println(err)
 	}
-	defer connToMaster.Close()
 
 	// 3. Register to the master node
 	// Register to New Node Registration Service
@@ -372,10 +305,9 @@ func main() {
 		fmt.Println("Can't Register The Data Node to Master",err)
 		os.Exit(0)
 	}
-	// print the response
-	fmt.Println("Registered to the master node")
 	id = response.GetDataKeeperId()
-	fmt.Println("Data Keeper ID: ", id)
+	fmt.Printf("Registered To Master With ID %s\n", id)
+	connToMaster.Close()
 
 	wg := sync.WaitGroup{}
 	// add 2 goroutines to the wait group

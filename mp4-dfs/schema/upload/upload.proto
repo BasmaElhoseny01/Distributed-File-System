@@ -33,20 +33,20 @@ message NotifyMasterRequest{
     string file_name=2;
     string file_path=3; // file path on the datanode
 }
-message NotifyMasterReponse{}
+message NotifyMasterResponse{}
 
 //NotifyClient
 message NotifyClientRequest{
     string file_name=1;
 }
-message NotifyClientReponse{}
+message NotifyClientResponse{}
 
 // Services
 service UploadService {
     rpc RequestUpload (RequestUploadRequest) returns (RequestUploadResponse);
     rpc UploadFile(stream UploadFileRequest) returns (UploadFileResponse);
-    rpc NotifyMaster(NotifyMasterRequest) returns (NotifyMasterReponse);
-    rpc NotifyClient(NotifyClientRequest) returns (NotifyClientReponse);
+    rpc NotifyMaster(NotifyMasterRequest) returns (NotifyMasterResponse);
+    rpc NotifyClient(NotifyClientRequest) returns (NotifyClientResponse);
 }
 
 // protoc --go_out=. --go-grpc_out=.  ./schema/upload/upload.proto

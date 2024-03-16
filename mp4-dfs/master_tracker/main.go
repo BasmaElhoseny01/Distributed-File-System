@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"time"
 
 	"google.golang.org/grpc"
 
@@ -15,13 +14,12 @@ import (
 	data_lookup "mp4-dfs/master_tracker/data_lookup"
 	file_lookup "mp4-dfs/master_tracker/file_lookup"
 
-	cf "mp4-dfs/schema/confirm_file_transfer"
 	download "mp4-dfs/schema/download"
-	req "mp4-dfs/schema/file_transfer_request"
-	fi "mp4-dfs/schema/finish_file_transfer"
 	hb "mp4-dfs/schema/heart_beat"
 	reg "mp4-dfs/schema/register"
-	"mp4-dfs/schema/upload"
+	upload "mp4-dfs/schema/upload"
+
+	cf "mp4-dfs/schema/confirm_file_transfer"
 )
 
 
@@ -30,8 +28,7 @@ type masterServer struct {
 	hb.UnimplementedHeartBeatServiceServer
 	upload.UnimplementedUploadServiceServer
 	download.UnimplementedDownloadServiceServer
-	req.UnimplementedFileTransferRequestServiceServer
-	fi.UnimplementedFinishFileTransferServiceServer
+	
 	cf.UnimplementedConfirmFileTransferServiceServer
 
 	data_node_lookup_table data_lookup.DataNodeLookUpTable
@@ -51,10 +48,12 @@ func (s *masterServer) Register(ctx context.Context, in *reg.DataKeeperRegisterR
 	// [FIX] Remove in.GetPort()
 	new_data_node:=data_lookup.NewDataNode(in.GetIp(),in.GetPort(),in.GetPorts())
 	node_id, err := s.data_node_lookup_table.AddDataNode(&new_data_node)
-	if err == nil {
-		fmt.Printf("New Data Node added Successfully\n")
-		fmt.Println(s.data_node_lookup_table.PrintDataNodeInfo(node_id))
+	if err!=nil{
+		fmt.Printf("Error When adding new Data Node with ID: %s",node_id)
+		return  &reg.DataKeeperRegisterResponse{},err
 	}
+	fmt.Printf("New Data Node added Successfully\n")
+	fmt.Println(s.data_node_lookup_table.PrintDataNodeInfo(node_id))
 
 	return &reg.DataKeeperRegisterResponse{DataKeeperId: node_id}, nil
 }
@@ -94,62 +93,43 @@ func (s *masterServer) RequestUpload (ctx context.Context, in *upload.RequestUpl
 	return  &upload.RequestUploadResponse{NodeSocket: node_socket},nil
 }
 
-
-// FileTransferRequest Services rpc
-func (s *masterServer) UploadRequest (ctx context.Context, in *req.UploadFileRequest) (*req.UploadFileResponse,error){
-	file_name:=in.GetFileName()
-	fmt.Println("Received Upload Request",file_name)
-	// check if file already exist	
-	if  exists :=s.files_lookup_table.CheckFileExists(file_name); exists {
-		return  &req.UploadFileResponse{},errors.New("file already exists")
-    }
-
-	// Get the data node with the least load
-	node_address,err:=s.data_node_lookup_table.GetLeastLoadedNode()
-	if err != nil {
-		fmt.Println(err)
-	}
-	return  &req.UploadFileResponse{Address: node_address},nil
-}
-
-// Finish File Transfer Service rpc
-func (s *masterServer) FinishFileUpload(ctx context.Context, in *fi.FinishFileUploadRequest) (*fi.FinishFileUploadResponse, error) {
-	fmt.Println("FinishFileUpload  Request")
-	data_node_id:=in.GetDataNodeId()
-	file_name:=in.GetFileName()
-	file_path:=in.GetFilePath()
+// NotifyMaster rpc 
+func (s *masterServer) NotifyMaster (ctx context.Context, in *upload.NotifyMasterRequest) (*upload.NotifyMasterResponse,error){
+	dataNodeId:=in.GetNodeId()
+	fileName:=in.GetFileName()
+	filePath:=in.GetFilePath()
 
 	// Add File to Files LookUpTable
-	newFile:=file_lookup.NewFile(file_name,data_node_id,file_path)
+	newFile:=file_lookup.NewFile(fileName,dataNodeId,filePath)
 	err:=s.files_lookup_table.AddFile(&newFile)
 	if err!=nil{
-		fmt.Printf("Error When adding file %s to lookup Table\n",file_name)
-		println(err)
-		return  &fi.FinishFileUploadResponse{},err
+		fmt.Printf("Error When adding file %s to lookup Table\n error %v\n",fileName,err)
+		return  &upload.NotifyMasterResponse{},err
 	}
-	fmt.Printf("Successfully added File %s at node %s in %s to lookup Table",file_name,data_node_id,file_path)
+	fmt.Printf("New File added Successfully\n")
+	fmt.Println(s.files_lookup_table.PrintFileInfo(fileName))
 
-
-	// [TODO] Send Notification Message To Client
-
-	// [TODO] Replicas
-
-	return  &fi.FinishFileUploadResponse{},nil
+	return &upload.NotifyMasterResponse{}, nil
 }
 
-// Confirm File Transfer Services rpc
-func (s *masterServer) ConfirmFileTransfer (ctx context.Context, in *cf.ConfirmFileTransferRequest) (*cf.ConfirmFileTransferResponse, error){
-	file_name:=in.GetFileName();
-	 // Try checking the condition 5 times with a 2-second interval
-	 for i := 0; i < 5; i++ {
-        if exists := s.files_lookup_table.CheckFileExists(file_name); exists {
-            return &cf.ConfirmFileTransferResponse{}, nil // File exists, return without error
-        }
-        time.Sleep(2 * time.Second) // Wait for 2 seconds before checking again
-    }
-	// If the file doesn't exist after 5 attempts, return an error
-	return &cf.ConfirmFileTransferResponse{}, errors.New("file not found")
-}
+// func (s *masterServer) NotifyClient (ctx context.Context, in *upload.NotifyClientRequest) (*upload.NotifyClientResponse,error){
+// 	return &upload.NotifyClientResponse{}, nil
+// }
+
+
+// // Confirm File Transfer Services rpc
+// func (s *masterServer) ConfirmFileTransfer (ctx context.Context, in *cf.ConfirmFileTransferRequest) (*cf.ConfirmFileTransferResponse, error){
+// 	file_name:=in.GetFileName();
+// 	 // Try checking the condition 5 times with a 2-second interval
+// 	 for i := 0; i < 5; i++ {
+//         if exists := s.files_lookup_table.CheckFileExists(file_name); exists {
+//             return &cf.ConfirmFileTransferResponse{}, nil // File exists, return without error
+//         }
+//         time.Sleep(2 * time.Second) // Wait for 2 seconds before checking again
+//     }
+// 	// If the file doesn't exist after 5 attempts, return an error
+// 	return &cf.ConfirmFileTransferResponse{}, errors.New("file not found")
+// }
 
 func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadRequest) (*download.DownloadServerResponse, error) {
 	file_name:=in.GetFileName()
@@ -223,17 +203,15 @@ func handleDataKeeper(master *masterServer) {
 	// Register in New Node Registration Service
 	reg.RegisterDataKeeperRegisterServiceServer(s,master)
 
-	// Register in HeartBeat Service
-	hb.RegisterHeartBeatServiceServer(s,master)
+	// Register to UploadService
+	upload.RegisterUploadServiceServer(s,master)
 
-	// Register to Finish File Transfer Service
-	fi.RegisterFinishFileTransferServiceServer(s,master)
-
-	// Register to Confirm File Transfer Service
-	cf.RegisterConfirmFileTransferServiceServer(s,master)
-	
+	// Register to DownloadService
 	download.RegisterDownloadServiceServer(s,master)
 
+	// Register in HeartBeat Service
+	hb.RegisterHeartBeatServiceServer(s,master)
+	
 	if err := s.Serve(dataKeeper_listener); err != nil {
 		fmt.Println(err)
 	}
