@@ -275,7 +275,8 @@ func (s *masterServer) sendClientConfirm(fileName string){
 		}
 		return 
 	}
-	
+	//Update File as Confirmed
+	s.files_lookup_table.ConfirmFile(fileName)
 	// Remove Client
 	s.client_lookup_table.RemoveClient(fileName)
 	fmt.Print("Removed Client :D\n")

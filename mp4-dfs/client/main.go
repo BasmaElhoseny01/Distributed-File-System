@@ -39,8 +39,6 @@ var confirmationMutex sync.Mutex // Mutex for concurrent access to the confirmat
 
 // ConfirmUpload rpc
 func (c *clientNode) ConfirmUpload(ctx context.Context, in *upload.ConfirmUploadRequest) (*upload.ConfirmUploadResponse, error) {
-	fmt.Printf("Master is Trying.......")
-
 	confirmationMutex.Lock()
 	defer confirmationMutex.Unlock()
 	if fileReceived == ""{
