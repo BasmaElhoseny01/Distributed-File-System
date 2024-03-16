@@ -21,7 +21,7 @@ func handleUploadFile(dataNodeAddress string, path string) {
 	//Establish Connection to Data Node
 	connToDataNode, err := grpc.Dial(dataNodeAddress, grpc.WithInsecure())
 	if err != nil {
-		fmt.Printf("Could not Connect to Master at [%s]", dataNodeAddress)
+		fmt.Printf("Could not Connect to Master at [%s]\n", dataNodeAddress)
 		fmt.Println(err)
 		return
 	}
@@ -110,6 +110,13 @@ func handleUploadFile(dataNodeAddress string, path string) {
 }
 
 func handleUploadFile2(path string){
+
+	// Check if the file exists
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		fmt.Printf("File %s does not exist\n", path)
+		return
+	}
+
 	filename := filepath.Base(path)
 
 	//1. Establish Connection to the Master
@@ -120,16 +127,15 @@ func handleUploadFile2(path string){
 		fmt.Printf("Can not connect to Master at %s\n", masterAddress)
 		return
 	}
-	defer connToMaster.Close()
 	fmt.Printf("Connected To Master %s\n", masterAddress)
 
 	//2. Register as Client to Service Upload File offered by the Master
-	upload_client := upload.NewUploadServiceClient(connToMaster)
+	uploadClient := upload.NewUploadServiceClient(connToMaster)
 
 
 	// 3. Upload File Request
 	fmt.Print("Sending Upload Request To Master ....\n")
-	response, err:=upload_client.RequestUpload(context.Background(),&upload.RequestUploadRequest{
+	response, err:=uploadClient.RequestUpload(context.Background(),&upload.RequestUploadRequest{
 		FileName: filename,
 		// ClientSocket: , //[FIX] Add That
 	})
@@ -138,9 +144,97 @@ func handleUploadFile2(path string){
 		return
 	}
 
-	node_socket:=response.GetNodeSocket()
-	fmt.Printf("Sending File to %s ...\n", node_socket)
+	nodeSocket:=response.GetNodeSocket()
+	//Close Connection with Master
+	connToMaster.Close()
+	fmt.Printf("Sending File to %s ...\n", nodeSocket)
+
+
+	//4. Transfer File
+	//Establish Connection to Data Node
+	connToDataNode, err := grpc.Dial(nodeSocket, grpc.WithInsecure())
+	if err != nil {
+		fmt.Printf("Could not Connect to DataNode at [%s]\n", nodeSocket)
+		return
+	}
+	defer connToDataNode.Close()
+
+	// Register To File Transfer Service to Data Node
+	uploadClient=upload.NewUploadServiceClient(connToDataNode)
+
+	// Send File MetaData + Chunks
+	sendFile(path,uploadClient)
 }
+
+func sendFile(path string,uploadClient upload.UploadServiceClient){
+	fileName := filepath.Base(path)
+
+	//1. Open File
+	file, err := os.Open(path)
+	if err != nil {
+		fmt.Printf("Cannot open Video File at [%s] got error: %v\b", path ,err)
+		return
+	}
+	defer file.Close()
+
+	//2. Calling RPC
+	stream, err := uploadClient.UploadFile(context.Background())
+	if err != nil {
+		fmt.Println("Cannot upload Video File: ", err)
+		return
+	}
+
+	//3. Send MetaData For Video File
+	req:=&upload.UploadFileRequest{
+		Data: &upload.UploadFileRequest_FileInfo{
+			FileInfo: &upload.FileInfo{
+				FileName: fileName,
+			},
+		},
+	}
+	err = stream.Send(req)
+	if err != nil {
+		fmt.Println("cannot send file info to server: ", err, stream.RecvMsg(nil))
+		return
+	}
+
+	//4. Send File Data
+	reader := bufio.NewReader(file)
+	buffer := make([]byte, 1024)
+	for {
+		n, err := reader.Read(buffer)
+		if err == io.EOF {
+			fmt.Println("End of File")
+			// End Of File
+			break
+		}
+		if err != nil {
+			fmt.Println("cannot read chunk to buffer: ", err)
+			return
+		}
+		// fmt.Printf("chunk of size %d n:%d\n", len(buffer[:n]), n)
+
+		// Send New Request to Server with Data Chunk
+		req:=&upload.UploadFileRequest{
+			Data: &upload.UploadFileRequest_ChuckData{
+				ChuckData: buffer[:n],
+			},
+		}
+		err = stream.Send(req)
+		if err != nil {
+			fmt.Println("cannot send chunk to server: ", err, stream.RecvMsg(nil))
+			return
+		}
+	}
+	// [FIX] Same Port Used by Client to call the DataNode
+	// fmt.Println("LOPPPS")
+	// for{}
+	//Sending EndOfFile
+	stream.CloseAndRecv()
+
+	fmt.Println("Finished Sending File 🧨")
+}
+
 func handleDownloadFile(filename string) {
 	
 }
@@ -184,16 +278,7 @@ func main() {
 		switch choice {
 		case 1:
 			handleUploadFile2(path)
-			// // (1) File Transfer Request
-			// // Send MetaData For Video File
-			// response, err := file_request_transfer_client.UploadRequest(context.Background(), &req.UploadFileRequest{
-			// 	FileName: filepath.Base(path),
-			// })
-			// if err != nil {
-			// 	fmt.Println("cannot request port from master to send the file", err)
-			// 	break
-			// }
-			// dataNodeAddress := response.Address
+		
 
 			// // (2) File Transfer
 			// handleUploadFile(dataNodeAddress, path)

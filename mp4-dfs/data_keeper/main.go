@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"strconv"
+	"sync"
 
 	"google.golang.org/grpc"
 
@@ -21,25 +24,92 @@ import (
 
 	Reg "mp4-dfs/schema/register"
 	utils "mp4-dfs/utils"
+
+	// download "mp4-dfs/schema/download"
+	upload "mp4-dfs/schema/upload"
 	// "sync"
 	// 	tr "mp4-dfs/schema/file_transfer"
 	// 	// hb "mp4-dfs/schema/heart_beat"
 	// 	fi "mp4-dfs/schema/finish_file_transfer"
-	// 	// download "mp4-dfs/schema/download"
 )
 
-// type nodeKeeperServer struct {
-// 	tr.UnimplementedFileTransferServiceServer
+type nodeKeeperServer struct {
+	// tr.UnimplementedFileTransferServiceServer
+	upload.UnimplementedUploadServiceServer
 
-// 	Id string
-// 	Ip string
-// 	port string
-// }
+	Id string
+	Ip string
+	port string //[FIX]
+	ports []string
+}
 
-// func NewNodeKeeperServer(id string,ip string, port string) *nodeKeeperServer {
-// 	return &nodeKeeperServer{Id:id, Ip: ip, port: port}
-// }
+// [FIX]
+func NewNodeKeeperServer(id string,ip string, port string, ports[]string) *nodeKeeperServer {
+	return &nodeKeeperServer{Id:id, Ip: ip, port: port,ports:ports }
+}
 
+// UploadFile rpc [client-streaming]
+func (s *nodeKeeperServer) UploadFile(stream upload.UploadService_UploadFileServer) error{
+
+	// Receive Video Info
+	req, err := stream.Recv()
+	if err!=nil{
+		fmt.Println("Can not receive file data",err)
+		return err
+	}
+
+	fileName:=req.GetFileInfo().GetFileName()
+	fmt.Printf("Uploading %s .........\n",fileName)
+
+	// Receive Chunks
+	video := bytes.Buffer{}
+	videoSize:=0
+
+	for{
+		fmt.Println("Waiting to receive more data")
+
+		req,err:=stream.Recv()
+		if err == io.EOF{
+			fmt.Println("Received EOF")
+			break
+		}
+		if err != nil {
+			fmt.Println("Can not receive chunk data",err)
+			return err
+		}
+
+		chunk:=req.GetChuckData()
+		size := len(chunk)
+		videoSize+=size
+		// fmt.Printf("Received a chunk with size: %d\n", size)
+	
+	
+		// Write the new chunk
+		_,err=video.Write(chunk)
+		if err!=nil{
+			fmt.Println("cannot write chunk data",err)
+			return err
+		}
+
+	}
+	// Save To Disk
+	savePath:=s.Id+"/"+fileName
+	err = writeVideoToDisk(savePath,video)
+	if err !=nil{
+		return err
+	}
+	
+	
+	//Close Connection
+	err = stream.SendAndClose(&upload.UploadFileResponse{})
+	if err != nil {
+		fmt.Printf("Can not send Close response: %v\n", err)
+	}
+
+
+	//(2) [TODO]Confirm To master the File Transfer
+	return nil
+}
 // // FileTransfer Services rpc [client-streaming] RPC
 // func (s *nodeKeeperServer) UploadFile(stream tr.FileTransferService_UploadFileServer) error {
 // 	fmt.Println("Data: Received Uploading")
@@ -130,34 +200,34 @@ import (
 // 	}
 // }
 
-// func writeVideoToDisk(filePath string,fileData bytes.Buffer) error{
+func writeVideoToDisk(filePath string,fileData bytes.Buffer) error{
 
-// 	//Create Folder
-// 	_, err := os.Stat(id)
-// 	if os.IsNotExist(err) {
-//         // Folder doesn't exist, create it
-//         err := os.MkdirAll(id, os.ModePerm)
-//         if err != nil {
-//             return err
-//         }
-//         fmt.Printf("Folder %s created successfully\n",id)
-// 	}
-// 	// 1. Create File
-// 	file, err := os.Create(filePath)
-// 	if err != nil {
-// 		fmt.Println("cannot create file at",filePath)
-// 		return err
-// 	}
+	//Create Folder
+	_, err := os.Stat(id)
+	if os.IsNotExist(err) {
+        // Folder doesn't exist, create it
+        err := os.MkdirAll(id, os.ModePerm)
+        if err != nil {
+            return err
+        }
+        fmt.Printf("Folder %s created successfully\n",id)
+	}
+	// 1. Create File
+	file, err := os.Create(filePath)
+	if err != nil {
+		fmt.Println("Can not create file at",filePath)
+		return err
+	}
 
-// 	//2. Write to File
-// 	_, err = fileData.WriteTo(file)
-// 	if err != nil {
-// 		fmt.Println("cannot write to file",err)
-// 		return err
-// 	}
-// 	fmt.Printf("Saved at %s",filePath)
-// 	return nil
-// }
+	//2. Write to File
+	_, err = fileData.WriteTo(file)
+	if err != nil {
+		fmt.Println("Can not write to file",err)
+		return err
+	}
+	fmt.Printf("Saved File at %s\n",filePath)
+	return nil
+}
 
 // // Ping Thread
 // func handlePing(connToMaster *grpc.ClientConn) {
@@ -175,33 +245,46 @@ import (
 // 	// }
 // }
 
-// // Client Thread
-// func handleClient(ip string ,port string){
-// 	fmt.Println("Handle Client")
-// 	// listen to the port
-// 	client_listener, err := net.Listen("tcp", ip+":"+port)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 	}
-// 	defer client_listener.Close()
 
-// 	// Define NodeKeeperServer
-// 	data_keeper := NewNodeKeeperServer(id,ip, port)
+func listenOnPort(server *grpc.Server, ip string ,port string) {
+	socket:=ip+":"+port
+    // Listen for incoming connections on the specified port
+	client_listener, err := net.Listen("tcp",socket )
+	fmt.Printf("Listening to Socket %s\n",socket)
 
-// 	// define Data Keeper Server and register the service
-// 	s := grpc.NewServer()
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer client_listener.Close()
 
-// 	// Register to FileTransfer Service [Server]
-// 	tr.RegisterFileTransferServiceServer(s, data_keeper)
+	if err := server.Serve(client_listener); err != nil {
+		fmt.Println(err)
+	}
+}
 
-// 	if err := s.Serve(client_listener); err != nil {
-// 		fmt.Println(err)
-// 	}
+// Client Thread
+func handleClient(ip string ,ports []string){
+	fmt.Println("Handle Client")
+	
+	// Define NodeKeeperServer
+	data_keeper := NewNodeKeeperServer(id,ip, "-1",ports)
 
-// 	fmt.Println("Handle Client Keeper finished")
-// }
+	// define Data Keeper Server and register the service
+	s := grpc.NewServer()
 
-// var id string
+	// Register to Upload File Service [Server]
+	upload.RegisterUploadServiceServer(s, data_keeper)
+
+	// Loop through each port and start a listener
+	for _, port := range ports {
+        go listenOnPort(s,ip,port)
+    }
+
+	// Keep the main goroutine running
+	select {}
+}
+
+var id string
 
 func GetNodeSockets() (node_ip string, node_ports []string) {
 	// Take The port Nos from Command Line
@@ -291,22 +374,22 @@ func main() {
 	}
 	// print the response
 	fmt.Println("Registered to the master node")
-	id := response.GetDataKeeperId()
+	id = response.GetDataKeeperId()
 	fmt.Println("Data Keeper ID: ", id)
 
-	// wg := sync.WaitGroup{}
-	// // add 2 goroutines to the wait group
-	// wg.Add(2)
-	// go func() {
-	// 	defer wg.Done()
-	// 	handlePing(connToMaster)	
-	// }()
-	// go func() {
-	// 	defer wg.Done()
-	// 	handleClient(ip,port)
-	// }()
+	wg := sync.WaitGroup{}
+	// add 2 goroutines to the wait group
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		// handlePing(connToMaster)	
+	}()
+	go func() {
+		defer wg.Done()
+		handleClient(ip,ports)
+	}()
 
-	// wg.Wait()
+	wg.Wait()
 }
 
 
