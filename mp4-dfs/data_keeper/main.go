@@ -111,7 +111,7 @@ func (s *nodeKeeperServer) UploadFile(stream upload.UploadService_UploadFileServ
 	masterAddress:=utils.GetMasterIP("node")
 	connToMaster, err := grpc.Dial(masterAddress, grpc.WithInsecure())
 	if err != nil {
-		fmt.Println("Can not connect to Master at %s\n",connToMaster)
+		fmt.Printf("Can not connect to Master at %s\n",connToMaster)
 		return err
 	}
 	fmt.Println("Connected To Master at", masterAddress)
