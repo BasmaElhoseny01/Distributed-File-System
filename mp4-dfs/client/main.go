@@ -201,27 +201,27 @@ func main() {
 			//Upload File
 			handleUploadFile(path,client_socket)
 
-			// Confirm File Upload
-			master_listener, err := net.Listen("tcp", client_socket)
-			if err != nil {
-				fmt.Printf("Failed to Listen to %s client_socket\n",client_socket)
+			// // Confirm File Upload
+			// master_listener, err := net.Listen("tcp", client_socket)
+			// if err != nil {
+			// 	fmt.Printf("Failed to Listen to %s client_socket\n",client_socket)
 				
-			}
-			fmt.Printf("Listening to Master at Socket: %s\n",client_socket)
+			// }
+			// fmt.Printf("Listening to Master at Socket: %s\n",client_socket)
 			
 			
-			s := grpc.NewServer()
-			// client := &clientNode{}
+			// s := grpc.NewServer()
+			// // client := &clientNode{}
 			
-			// Register to UploadService
-			upload.RegisterUploadServiceServer(s, &client)
+			// // Register to UploadService
+			// upload.RegisterUploadServiceServer(s, &client)
 			
-			if err := s.Serve(master_listener); err != nil {
-				fmt.Println(err)
-			}
-			// [TODO] Add Channel
-			for {}
-			master_listener.Close()
+			// if err := s.Serve(master_listener); err != nil {
+			// 	fmt.Println(err)
+			// }
+			// // [TODO] Add Channel
+			// for {}
+			// master_listener.Close()
 			
 
 			// ...

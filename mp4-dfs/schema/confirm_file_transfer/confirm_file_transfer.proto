@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package confirm_file_transfer;
+
+// Go Bindings Generations
+option go_package = "schema/confirm_file_transfer";
+
+
+
+//Services
+service ConfirmFileTransferService {
+    rpc ConfirmFileTransfer(ConfirmFileTransferRequest) returns (ConfirmFileTransferResponse);
+}
+
+message ConfirmFileTransferRequest{
+    string file_name =1;
+}
+
+message ConfirmFileTransferResponse{}
+// protoc --go_out=. --go-grpc_out=.  ./schema/confirm_file_transfer/confirm_file_transfer.proto
