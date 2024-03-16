@@ -5,18 +5,37 @@ import (
 	"context"
 	"fmt"
 	"io"
+
+	// "net"
 	"os"
 	"path/filepath"
 
 	"google.golang.org/grpc"
 
-	utils "mp4-dfs/utils"
 	upload "mp4-dfs/schema/upload"
+	utils "mp4-dfs/utils"
 	// download "mp4-dfs/schema/download"
 )
 
+type clientNode struct{
+	upload.UnimplementedUploadServiceServer
+	socket string
+}
 
-func handleUploadFile(path string){
+func newClientNode(socket_no string) clientNode{
+	return clientNode{
+		socket:socket_no,
+	}
+}
+
+// ConfirmUpload rpc
+func (c *clientNode) ConfirmUpload(ctx context.Context, in *upload.ConfirmUploadRequest) (*upload.ConfirmUploadResponse, error) {
+	fileName:=in.GetFileName()
+	fmt.Printf("Master Confirmed File %s being uploaded successfully\n",fileName)
+	return &upload.ConfirmUploadResponse{},nil
+}
+
+func handleUploadFile(path string,socket string){
 
 	// Check if the file exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -44,7 +63,7 @@ func handleUploadFile(path string){
 	fmt.Print("Sending Upload Request To Master ....\n")
 	response, err:=uploadClient.RequestUpload(context.Background(),&upload.RequestUploadRequest{
 		FileName: filename,
-		// ClientSocket: , //[FIX] Add That
+		ClientSocket: socket, 
 	})
 	if err!=nil{
 		fmt.Println("Failed to request port from Master", err)
@@ -142,12 +161,25 @@ func sendFile(path string,uploadClient upload.UploadServiceClient){
 	fmt.Println("Finished Sending File 🧨")
 }
 
+
 func handleDownloadFile(filename string) {
 	
 }
 
 func main() {
 	fmt.Println("Welcome Client 😊")
+
+	// [TODO] 
+	// 1. Get Ip & Ports
+	// ip,ports:=GetNodeSockets()
+	ip:="127.0.0.1"
+	port:="8085"
+	client_socket:=ip+":"+port
+
+	// client:=newClientNode(client_socket)
+
+	// Create a channel for synchronization
+	// notifyChan := make(chan struct{})
 
 	for {
 		// Transfer type from user
@@ -166,7 +198,33 @@ func main() {
 
 		switch choice {
 		case 1:
-			handleUploadFile(path)
+			//Upload File
+			handleUploadFile(path,client_socket)
+
+			// // Confirm File Upload
+			// master_listener, err := net.Listen("tcp", client_socket)
+			// if err != nil {
+			// 	fmt.Printf("Failed to Listen to %s client_socket\n",client_socket)
+				
+			// }
+			// fmt.Printf("Listening to Master at Socket: %s\n",client_socket)
+			
+			
+			// s := grpc.NewServer()
+			// // client := &clientNode{}
+			
+			// // Register to UploadService
+			// upload.RegisterUploadServiceServer(s, &client)
+			
+			// if err := s.Serve(master_listener); err != nil {
+			// 	fmt.Println(err)
+			// }
+			// // [TODO] Add Channel
+			// for {}
+			// master_listener.Close()
+			
+
+			// ...
 		
 			// //(3) Await Master Confirmation
 			// fmt.Println("Waiting For Confirm From Master")

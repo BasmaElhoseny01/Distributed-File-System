@@ -11,6 +11,7 @@ import (
 
 	utils "mp4-dfs/utils"
 
+	client_lookup "mp4-dfs/master_tracker/client_lookup"
 	data_lookup "mp4-dfs/master_tracker/data_lookup"
 	file_lookup "mp4-dfs/master_tracker/file_lookup"
 
@@ -33,11 +34,13 @@ type masterServer struct {
 
 	data_node_lookup_table data_lookup.DataNodeLookUpTable
 	files_lookup_table file_lookup.FileLookUpTable
+	client_lookup_table  client_lookup.ClientLookUpTable
 }
 func NewMasterServer() masterServer{
 	return masterServer{
 		data_node_lookup_table:data_lookup.NewDataNodeLookUpTable(),
 		files_lookup_table:file_lookup.NewFileLookUpTable(),
+		client_lookup_table:client_lookup.NewClientLookUpTable(),
 	}
 }
 
@@ -88,7 +91,15 @@ func (s *masterServer) RequestUpload (ctx context.Context, in *upload.RequestUpl
 	}
 
 	// [FIX]Save The Socket for that client
-	// client_socket:=in.ClientSocket()
+	client_socket:=in.GetClientSocket()
+	err=s.client_lookup_table.AddClient(file_name,client_socket)
+
+	if err!=nil{
+		fmt.Printf("Error When adding new Client at %s Waiting for File %s",client_socket,file_name)
+		return   &upload.RequestUploadResponse{},err
+	}
+	fmt.Printf("New Client  added Successfully\n")
+	fmt.Println(s.client_lookup_table.PrintClientInfo(file_name))
 
 	return  &upload.RequestUploadResponse{NodeSocket: node_socket},nil
 }
@@ -109,13 +120,35 @@ func (s *masterServer) NotifyMaster (ctx context.Context, in *upload.NotifyMaste
 	fmt.Printf("New File added Successfully\n")
 	fmt.Println(s.files_lookup_table.PrintFileInfo(fileName))
 
+	// // Send Notification to Client
+	// // GetSocket for teh Client 
+	// client_socket:=s.client_lookup_table.GetClientSocket(fileName)
+	// //1. Establish Connection to the Master
+	// connToClient, err := grpc.Dial(client_socket, grpc.WithInsecure())
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	fmt.Printf("Can not connect to Master at %s\n", client_socket)
+	// 	return &upload.NotifyMasterResponse{}, err
+	// }
+	// fmt.Printf("Connected To Master %s\n", client_socket)
+
+	// confirm_client:=upload.NewUploadServiceClient(connToClient)
+	
+	// fmt.Print("Sending Notification To Client ....\n")
+	// _, err=confirm_client.ConfirmUpload(context.Background(),&upload.ConfirmUploadRequest{})
+	// if err!=nil{
+	// 	fmt.Println("Failed to Send Notification to Client", err)
+	// 	return &upload.NotifyMasterResponse{}, err
+	// }
+	// // Remove Client
+	// s.client_lookup_table.RemoveClient(fileName)
+	// fmt.Print("Removed Client :D\n")
+
+
+	// // [TODO] Check Replica
+
 	return &upload.NotifyMasterResponse{}, nil
 }
-
-// func (s *masterServer) NotifyClient (ctx context.Context, in *upload.NotifyClientRequest) (*upload.NotifyClientResponse,error){
-// 	return &upload.NotifyClientResponse{}, nil
-// }
-
 
 // // Confirm File Transfer Services rpc
 // func (s *masterServer) ConfirmFileTransfer (ctx context.Context, in *cf.ConfirmFileTransferRequest) (*cf.ConfirmFileTransferResponse, error){
@@ -219,11 +252,11 @@ func handleDataKeeper(master *masterServer) {
 }
 
 func main() {
-	// TODO Thread to listen to alive pings from data keepers
+	// Thread to listen to alive pings from data keepers
 	fmt.Println("Hello From Master Node 😎")
 	// Create Master Server
 	master:=NewMasterServer()
-	// TODO (1) Register to the master node
+	// (1) Register to the master node
 	wg := sync.WaitGroup{}
 	// add 2 goroutines to the wait group
 	wg.Add(2)

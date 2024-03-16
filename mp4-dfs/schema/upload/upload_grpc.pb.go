@@ -25,7 +25,7 @@ type UploadServiceClient interface {
 	RequestUpload(ctx context.Context, in *RequestUploadRequest, opts ...grpc.CallOption) (*RequestUploadResponse, error)
 	UploadFile(ctx context.Context, opts ...grpc.CallOption) (UploadService_UploadFileClient, error)
 	NotifyMaster(ctx context.Context, in *NotifyMasterRequest, opts ...grpc.CallOption) (*NotifyMasterResponse, error)
-	NotifyClient(ctx context.Context, in *NotifyClientRequest, opts ...grpc.CallOption) (*NotifyClientResponse, error)
+	ConfirmUpload(ctx context.Context, in *ConfirmUploadRequest, opts ...grpc.CallOption) (*ConfirmUploadResponse, error)
 }
 
 type uploadServiceClient struct {
@@ -88,9 +88,9 @@ func (c *uploadServiceClient) NotifyMaster(ctx context.Context, in *NotifyMaster
 	return out, nil
 }
 
-func (c *uploadServiceClient) NotifyClient(ctx context.Context, in *NotifyClientRequest, opts ...grpc.CallOption) (*NotifyClientResponse, error) {
-	out := new(NotifyClientResponse)
-	err := c.cc.Invoke(ctx, "/upload.UploadService/NotifyClient", in, out, opts...)
+func (c *uploadServiceClient) ConfirmUpload(ctx context.Context, in *ConfirmUploadRequest, opts ...grpc.CallOption) (*ConfirmUploadResponse, error) {
+	out := new(ConfirmUploadResponse)
+	err := c.cc.Invoke(ctx, "/upload.UploadService/ConfirmUpload", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ type UploadServiceServer interface {
 	RequestUpload(context.Context, *RequestUploadRequest) (*RequestUploadResponse, error)
 	UploadFile(UploadService_UploadFileServer) error
 	NotifyMaster(context.Context, *NotifyMasterRequest) (*NotifyMasterResponse, error)
-	NotifyClient(context.Context, *NotifyClientRequest) (*NotifyClientResponse, error)
+	ConfirmUpload(context.Context, *ConfirmUploadRequest) (*ConfirmUploadResponse, error)
 	mustEmbedUnimplementedUploadServiceServer()
 }
 
@@ -121,8 +121,8 @@ func (UnimplementedUploadServiceServer) UploadFile(UploadService_UploadFileServe
 func (UnimplementedUploadServiceServer) NotifyMaster(context.Context, *NotifyMasterRequest) (*NotifyMasterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NotifyMaster not implemented")
 }
-func (UnimplementedUploadServiceServer) NotifyClient(context.Context, *NotifyClientRequest) (*NotifyClientResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method NotifyClient not implemented")
+func (UnimplementedUploadServiceServer) ConfirmUpload(context.Context, *ConfirmUploadRequest) (*ConfirmUploadResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConfirmUpload not implemented")
 }
 func (UnimplementedUploadServiceServer) mustEmbedUnimplementedUploadServiceServer() {}
 
@@ -199,20 +199,20 @@ func _UploadService_NotifyMaster_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
-func _UploadService_NotifyClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NotifyClientRequest)
+func _UploadService_ConfirmUpload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConfirmUploadRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UploadServiceServer).NotifyClient(ctx, in)
+		return srv.(UploadServiceServer).ConfirmUpload(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/upload.UploadService/NotifyClient",
+		FullMethod: "/upload.UploadService/ConfirmUpload",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UploadServiceServer).NotifyClient(ctx, req.(*NotifyClientRequest))
+		return srv.(UploadServiceServer).ConfirmUpload(ctx, req.(*ConfirmUploadRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -233,8 +233,8 @@ var UploadService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _UploadService_NotifyMaster_Handler,
 		},
 		{
-			MethodName: "NotifyClient",
-			Handler:    _UploadService_NotifyClient_Handler,
+			MethodName: "ConfirmUpload",
+			Handler:    _UploadService_ConfirmUpload_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
