@@ -1,7 +1,9 @@
 package data_lookup
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -10,18 +12,23 @@ import (
 type DataNode struct {
     // Define fields as needed
     Id  string
+
 	alive bool 
 	ping_timestamp time.Time
 	load float32
+
 	Ip string
-	port string
+	port string //[FIX] Remove
+	ports []string
 }
 
-func NewDataNode(Ip string,port string) DataNode{
+// [FIX] Remove port
+func NewDataNode(Ip string,port string,ports []string) DataNode{
 	return DataNode{
 		Id: "",
 		Ip: Ip,
 		port: port,
+		ports:ports,
 	}
 }
 
@@ -58,6 +65,14 @@ func (store *DataNodeLookUpTable)AddDataNode(dataNode *DataNode) (string,error){
 	return dataNode.Id,nil
 }
 
+//Get Info
+func (store *DataNodeLookUpTable) PrintDataNodeInfo(data_node_id string )(string){
+	data_node:=store.data[data_node_id]
+
+	details := fmt.Sprintf("DataNode ID: %s, IP: %s, Ports: %s, Alive: %v, Ping Timestamp: %s, Load: %.2f",
+	data_node.Id, data_node.Ip, strings.Join(data_node.ports, "-"), data_node.alive, data_node.ping_timestamp.Format(time.RFC3339), data_node.load)
+	return details
+}
 
 // Update DataNode Time Stamp
 func (store *DataNodeLookUpTable)UpdateNodeTimeStamp(id string) (time.Time,error){
@@ -82,7 +97,9 @@ func (store *DataNodeLookUpTable)GetLeastLoadedNode() (string,error){
 			min_node=key
 		}
 	}
-	address:=store.data[min_node].Ip+":"+store.data[min_node].port
+
+	// [FIX] Return the Available Port replace ports[0] with that 
+	address:=store.data[min_node].Ip+":"+store.data[min_node].ports[0]
 	
 	return address,nil
 }

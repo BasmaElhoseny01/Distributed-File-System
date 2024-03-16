@@ -5,32 +5,37 @@ import (
 	"context"
 	"fmt"
 	"io"
-	cf "mp4-dfs/schema/confirm_file_transfer"
-	tr "mp4-dfs/schema/file_transfer"
-	req "mp4-dfs/schema/file_transfer_request"
-	download "mp4-dfs/schema/download"
+
+	// "net"
 	"os"
 	"path/filepath"
 
 	"google.golang.org/grpc"
+
+	upload "mp4-dfs/schema/upload"
+	utils "mp4-dfs/utils"
+	// download "mp4-dfs/schema/download"
 )
 
-func handleUploadFile(dataNodeAddress string, path string) {
-	//Establish Connection to Data Node
-	connToDataNode, err := grpc.Dial(dataNodeAddress, grpc.WithInsecure())
-	if err != nil {
-		fmt.Printf("Could not Connect to Master at [%s]", dataNodeAddress)
-		fmt.Println(err)
-		return
+type clientNode struct{
+	upload.UnimplementedUploadServiceServer
+	socket string
+}
+
+func newClientNode(socket_no string) clientNode{
+	return clientNode{
+		socket:socket_no,
 	}
-	// defer connToDataNode.Close()
-	fmt.Printf("Connected To Data Node at %s 🤗\n", dataNodeAddress)
+}
 
-	// Register To File Transfer Service to Data Node
-	file_transfer_client := tr.NewFileTransferServiceClient(connToDataNode)
+// ConfirmUpload rpc
+func (c *clientNode) ConfirmUpload(ctx context.Context, in *upload.ConfirmUploadRequest) (*upload.ConfirmUploadResponse, error) {
+	fileName:=in.GetFileName()
+	fmt.Printf("Master Confirmed File %s being uploaded successfully\n",fileName)
+	return &upload.ConfirmUploadResponse{},nil
+}
 
-	// File Transfer
-	fmt.Printf("Sending File to Data Node ....\n")
+func handleUploadFile(path string,socket string){
 
 	// Check if the file exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -38,28 +43,78 @@ func handleUploadFile(dataNodeAddress string, path string) {
 		return
 	}
 
-	// Open File
+	filename := filepath.Base(path)
+
+	//1. Establish Connection to the Master
+	masterAddress := utils.GetMasterIP("client")
+	connToMaster, err := grpc.Dial(masterAddress, grpc.WithInsecure())
+	if err != nil {
+		fmt.Println(err)
+		fmt.Printf("Can not connect to Master at %s\n", masterAddress)
+		return
+	}
+	fmt.Printf("Connected To Master %s\n", masterAddress)
+
+	//2. Register as Client to Service Upload File offered by the Master
+	uploadClient := upload.NewUploadServiceClient(connToMaster)
+
+
+	// 3. Upload File Request
+	fmt.Print("Sending Upload Request To Master ....\n")
+	response, err:=uploadClient.RequestUpload(context.Background(),&upload.RequestUploadRequest{
+		FileName: filename,
+		ClientSocket: socket, 
+	})
+	if err!=nil{
+		fmt.Println("Failed to request port from Master", err)
+		return
+	}
+
+	nodeSocket:=response.GetNodeSocket()
+	//Close Connection with Master
+	connToMaster.Close()
+	fmt.Printf("Sending File to %s ...\n", nodeSocket)
+
+
+	//4. Transfer File
+	//Establish Connection to Data Node
+	connToDataNode, err := grpc.Dial(nodeSocket, grpc.WithInsecure())
+	if err != nil {
+		fmt.Printf("Could not Connect to DataNode at [%s]\n", nodeSocket)
+		return
+	}
+	defer connToDataNode.Close()
+
+	// Register To File Transfer Service to Data Node
+	uploadClient=upload.NewUploadServiceClient(connToDataNode)
+
+	// Send File MetaData + Chunks
+	sendFile(path,uploadClient)
+}
+
+func sendFile(path string,uploadClient upload.UploadServiceClient){
+	fileName := filepath.Base(path)
+
+	//1. Open File
 	file, err := os.Open(path)
 	if err != nil {
-		fmt.Printf("Cannot open Video File at [%s] ", path)
-		fmt.Println(err)
+		fmt.Printf("Cannot open Video File at [%s] got error: %v\b", path ,err)
 		return
 	}
 	defer file.Close()
 
-	stream, err := file_transfer_client.UploadFile(context.Background())
+	//2. Calling RPC
+	stream, err := uploadClient.UploadFile(context.Background())
 	if err != nil {
 		fmt.Println("Cannot upload Video File: ", err)
 		return
 	}
 
-	// Send MetaData For Video File
-	fileName := filepath.Base(path)
-
-	req := &tr.UploadVideoRequest{
-		Data: &tr.UploadVideoRequest_Info{
-			Info: &tr.VideoInfo{
-				Name: fileName,
+	//3. Send MetaData For Video File
+	req:=&upload.UploadFileRequest{
+		Data: &upload.UploadFileRequest_FileInfo{
+			FileInfo: &upload.FileInfo{
+				FileName: fileName,
 			},
 		},
 	}
@@ -69,15 +124,13 @@ func handleUploadFile(dataNodeAddress string, path string) {
 		return
 	}
 
+	//4. Send File Data
 	reader := bufio.NewReader(file)
 	buffer := make([]byte, 1024)
-	i := 0
 	for {
-		i += 1
-		fmt.Println("Reading next buffer")
 		n, err := reader.Read(buffer)
 		if err == io.EOF {
-			fmt.Printf("End of File\n\n")
+			fmt.Println("End of File")
 			// End Of File
 			break
 		}
@@ -85,10 +138,11 @@ func handleUploadFile(dataNodeAddress string, path string) {
 			fmt.Println("cannot read chunk to buffer: ", err)
 			return
 		}
-		fmt.Printf("chunk of size %d n:%d\n", len(buffer[:n]), n)
+		// fmt.Printf("chunk of size %d n:%d\n", len(buffer[:n]), n)
+
 		// Send New Request to Server with Data Chunk
-		req := &tr.UploadVideoRequest{
-			Data: &tr.UploadVideoRequest_ChuckData{
+		req:=&upload.UploadFileRequest{
+			Data: &upload.UploadFileRequest_ChuckData{
 				ChuckData: buffer[:n],
 			},
 		}
@@ -98,36 +152,30 @@ func handleUploadFile(dataNodeAddress string, path string) {
 			return
 		}
 	}
+	// [FIX] Same Port Used by Client to call the DataNode
+	// fmt.Println("LOPPPS")
+	// for{}
+	//Sending EndOfFile
+	stream.CloseAndRecv()
 
-	// sends an EOF (End-of-File) signal to the server
-	// does not directly close the server-side stream
-	_, err = stream.CloseAndRecv()
-	if err != nil {
-		fmt.Print("cannot receive response:\n", err)
-	}
+	fmt.Println("Finished Sending File 🧨")
 }
+
 
 func main() {
 	fmt.Println("Welcome Client 😊")
 
-	masterPort := "localhost:5001"
-	connToMaster, err := grpc.Dial(masterPort, grpc.WithInsecure())
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer connToMaster.Close()
-	fmt.Print("Connected To Master Node 🎉\n")
+	// [TODO] 
+	// 1. Get Ip & Ports
+	// ip,ports:=GetNodeSockets()
+	ip:="127.0.0.1"
+	port:="8085"
+	client_socket:=ip+":"+port
 
-	// Register To Services
-	// File Transfer Request Service to Master
-	file_request_transfer_client := req.NewFileTransferRequestServiceClient(connToMaster)
+	// client:=newClientNode(client_socket)
 
-	// File Transfer Confirm Request Service to Master
-	confirm_file_transfer_client := cf.NewConfirmFileTransferServiceClient(connToMaster)
-
-	download_request_transfer_client := download.NewDownloadServiceClient(connToMaster)
-
-
+	// Create a channel for synchronization
+	// notifyChan := make(chan struct{})
 
 	for {
 		// Transfer type from user
@@ -171,6 +219,46 @@ func main() {
 			} else {
 				fmt.Println("Video Uploaded Successfully 🎆")
 			}
+			//Upload File
+			handleUploadFile(path,client_socket)
+
+			// // Confirm File Upload
+			// master_listener, err := net.Listen("tcp", client_socket)
+			// if err != nil {
+			// 	fmt.Printf("Failed to Listen to %s client_socket\n",client_socket)
+				
+			// }
+			// fmt.Printf("Listening to Master at Socket: %s\n",client_socket)
+			
+			
+			// s := grpc.NewServer()
+			// // client := &clientNode{}
+			
+			// // Register to UploadService
+			// upload.RegisterUploadServiceServer(s, &client)
+			
+			// if err := s.Serve(master_listener); err != nil {
+			// 	fmt.Println(err)
+			// }
+			// // [TODO] Add Channel
+			// for {}
+			// master_listener.Close()
+			
+
+			// ...
+		
+			// //(3) Await Master Confirmation
+			// fmt.Println("Waiting For Confirm From Master")
+			// _, err = confirm_file_transfer_client.ConfirmFileTransfer(context.Background(), &cf.ConfirmFileTransferRequest{
+			// 	FileName: filepath.Base(path),
+			// })
+			// if err != nil {
+			// 	fmt.Println("Upload Failed please Try again")
+			// 	fmt.Println(err)
+			// } else {
+			// 	fmt.Println("Video Uploaded Successfully 🎆")
+			// }
+
 		case 2:
 			fmt.Print("Enter file name: ")
 			var filename string
