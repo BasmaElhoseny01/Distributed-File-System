@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -15,9 +16,9 @@ import (
 
 	"google.golang.org/grpc"
 
+	download "mp4-dfs/schema/download"
 	upload "mp4-dfs/schema/upload"
 	utils "mp4-dfs/utils"
-	download "mp4-dfs/schema/download"
 )
 
 type clientNode struct{
@@ -245,14 +246,70 @@ func handleDownloadFile(servers_data []*download.Server, filename string){
 		fmt.Println("Multiple servers available")
 	}
 }
+
+
+func GetNodeSockets() (node_ip string, node_ports []string) {
+	// Take The port Nos from Command Line
+	if len(os.Args) < 2 {
+        fmt.Println("Usage: data_node [<your_ip>] <port1> [<port2> ...]")
+        return
+    }
+
+	// If the first argument is an IP address, parse it
+    ip := net.ParseIP(os.Args[1])
+	if ip == nil{
+		ipAddr, err := net.ResolveIPAddr("ip", os.Args[1])
+		if err==nil{
+			ip=ipAddr.IP
+		}
+	}
+    if ip != nil {
+        // If the first argument is an IP address, shift arguments to the right
+        os.Args = append(os.Args[:1], os.Args[2:]...)
+    } else {
+        // Get IP address using GetMyIP function if not provided in arguments
+        ip = utils.GetMyIp()
+        if ip == nil {
+            fmt.Println("Failed to retrieve IP address.")
+			os.Exit(1)
+        }
+	}
+
+	var ports []int
+	// Parse port numbers from the command line
+	for i := 1; i < len(os.Args); i++ {
+		port, err := strconv.Atoi(os.Args[i])
+		if err != nil {
+			fmt.Println("Invalid port number:", os.Args[i])
+		}else {
+			ports = append(ports, port)
+		}
+	}
+	var reachable_ports []string
+	// Check if the IP address and ports are reachable
+	for _, port := range ports {
+		if !utils.IsPortOpen(ip.String(), port) {
+			fmt.Printf("Port %d is not reachable\n", port)
+		}else{
+			reachable_ports=append(reachable_ports, strconv.Itoa(port))
+		}
+	}
+
+	if len(ports) == 0 {
+		fmt.Println("At least one port is required.")
+		os.Exit(1)
+	}
+	return ip.String(),reachable_ports
+	}
+
 func main() {
 	fmt.Println("Welcome Client 😊")
 
 	// [TODO] 
 	// 1. Get Ip & Ports
-	// ip,ports:=GetNodeSockets()
-	ip:="127.0.0.1"
-	port:="8085"
+	ip,ports:=GetNodeSockets()
+	// ip:="127.0.0.1"
+	port:=ports[0]
 	client_socket:=ip+":"+port
 
 	client:=newClientNode(client_socket)
