@@ -313,9 +313,9 @@ func main() {
 	fmt.Println("Hello From Data Node 📑")
 
 	// 1. Get Ip & Ports
-	// ip,ports:=GetNodeSockets()
-	ip:="127.0.0.1"
-	ports:=[]string{"8080", "8081"}
+	ip,ports:=GetNodeSockets()
+	// ip:="127.0.0.1"
+	// ports:=[]string{"8080", "8081"}
 
 	// Now you can use ip and ports in your program
 	fmt.Println("IP address:", ip)

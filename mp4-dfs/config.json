@@ -1,7 +1,7 @@
 {
     "master": {
-        "ip": "localhost",
-        "node_port":5001,
-        "client_port":5002
+        "ip": "192.168.8.180",
+        "node_port": 5001,
+        "client_port": 5002
     }
 }
