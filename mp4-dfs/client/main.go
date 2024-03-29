@@ -307,9 +307,10 @@ func main() {
 
 	// [TODO] 
 	// 1. Get Ip & Ports
-	ip,ports:=GetNodeSockets()
-	// ip:="127.0.0.1"
-	port:=ports[0]
+	// ip,ports:=GetNodeSockets()
+	ip:="127.0.0.1"
+	// port:=ports[0]
+	port := "8085"
 	client_socket:=ip+":"+port
 
 	client:=newClientNode(client_socket)
