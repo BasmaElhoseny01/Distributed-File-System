@@ -45,8 +45,6 @@ func NewMasterServer() masterServer{
 		client_lookup_table:client_lookup.NewClientLookUpTable(),
 	}
 }
-
-
 // DataKeepersNodes Registration Services rpc
 func (s *masterServer) Register(ctx context.Context, in *reg.DataKeeperRegisterRequest) (*reg.DataKeeperRegisterResponse, error) {
 	// Add the data node to the lookup table
@@ -256,7 +254,6 @@ func periodicCheckup(master *masterServer){
 
 		}
 			
-			
 		// 	//3. Check For Replicas
 
 		// Sleep for 5 seconds before the next check
@@ -264,6 +261,19 @@ func periodicCheckup(master *masterServer){
 	}
 
 }
+
+// func checkReplication() {
+    
+    // // Iterate through distinct file instances
+    // files := distinctFileInstances()
+    // for _, file := range files {
+    //     sourceMachine := getSourceMachine(file)
+    //     for getInstanceCount(file) < 3 {
+    //         destinationMachine := selectMachineToCopyTo()
+    //         notifyMachineDataTransfer(sourceMachine, destinationMachine, file)
+    //     }
+    // }
+// }
 
 func (s *masterServer) sendClientConfirm(fileName string){
 	// Send Notification to Client
