@@ -243,17 +243,17 @@ func handleDataKeeper(master *masterServer) {
 func periodicCheckup(master *masterServer){
 	for{
 		println("Periodic Checkup")
-		//1. Check Ideal DataNodes
-
+		//1. Check Ideal 
+		print("Check Ideal Nodes....\n")
+		master.data_node_lookup_table.CheckPingStatus()
 		// 2.Sent Notifications to Clients
-		println("Checking UnConfirmed Files...")
+		println("Checking UnConfirmed Files...\n")
 		unconfirmedFiles:=master.files_lookup_table.CheckUnConfirmedFiles()
 		println(unconfirmedFiles)
 		for _, file := range unconfirmedFiles{
 			master.sendClientConfirm(file)
 
 		}
-			
 		// 	//3. Check For Replicas
 
 		// Sleep for 5 seconds before the next check

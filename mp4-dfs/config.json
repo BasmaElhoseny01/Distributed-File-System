@@ -1,6 +1,6 @@
 {
     "master": {
-        "ip": "192.168.8.180",
+        "ip": "localhost",
         "node_port": 5001,
         "client_port": 5002
     }

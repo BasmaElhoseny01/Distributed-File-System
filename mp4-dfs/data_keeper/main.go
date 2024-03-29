@@ -19,7 +19,7 @@ import (
 	// 	"net"
 	// 	"os"
 	// 	"sync"
-	// 	// "time"
+	"time"
 	// "context"
 
 	Reg "mp4-dfs/schema/register"
@@ -29,7 +29,7 @@ import (
 	upload "mp4-dfs/schema/upload"
 	// "sync"
 	// 	tr "mp4-dfs/schema/file_transfer"
-	// 	// hb "mp4-dfs/schema/heart_beat"
+	hb "mp4-dfs/schema/heart_beat"
 	// 	fi "mp4-dfs/schema/finish_file_transfer"
 )
 
@@ -195,21 +195,23 @@ func writeVideoToDisk(filePath string,fileData bytes.Buffer) error{
 	return nil
 }
 
-// // Ping Thread
-// func handlePing(connToMaster *grpc.ClientConn) {
-// 	// Register to HeartBeats Service
-// 	// client := hb.NewHeartBeatServiceClient(connToMaster)
+// Ping Thread
+func handlePing(connToMaster *grpc.ClientConn) {
+	
 
-// 	// for {
-// 	// 	_, err := client.AlivePing(context.Background(), &hb.AlivePingRequest{DataKeeperId: id})
-// 	// 	if err != nil {
-// 	// 		fmt.Println(err)
-// 	// 	}
-// 	// 	// sleep for 1 seconds
-// 	// 	time.Sleep(1 * time.Second)
-// 	// 	fmt.Println("Alive Ping Sent")
-// 	// }
-// }
+	// Register to HeartBeats Service
+	client := hb.NewHeartBeatServiceClient(connToMaster)
+
+	for {
+		_, err := client.AlivePing(context.Background(), &hb.AlivePingRequest{DataKeeperId: id})
+		if err != nil {
+			fmt.Println(err)
+		}
+		// sleep for 1 seconds
+		time.Sleep(1 * time.Second)
+		fmt.Println("Alive Ping Sent")
+	}
+}
 
 
 func listenOnPort(server *grpc.Server, ip string ,port string) {
@@ -313,9 +315,9 @@ func main() {
 	fmt.Println("Hello From Data Node 📑")
 
 	// 1. Get Ip & Ports
-	ip,ports:=GetNodeSockets()
-	// ip:="127.0.0.1"
-	// ports:=[]string{"8080", "8081"}
+	// ip,ports:=GetNodeSockets()
+	ip:="127.0.0.1"
+	ports:=[]string{"8080"}
 
 	// Now you can use ip and ports in your program
 	fmt.Println("IP address:", ip)
@@ -342,14 +344,15 @@ func main() {
 	}
 	id = response.GetDataKeeperId()
 	fmt.Printf("Registered To Master With ID %s\n", id)
-	connToMaster.Close()
+
+	// connToMaster.Close()
 
 	wg := sync.WaitGroup{}
 	// add 2 goroutines to the wait group
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		// handlePing(connToMaster)	
+		handlePing(connToMaster)	
 	}()
 	go func() {
 		defer wg.Done()
