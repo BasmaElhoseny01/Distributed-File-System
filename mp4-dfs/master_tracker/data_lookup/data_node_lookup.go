@@ -135,3 +135,29 @@ func (store *DataNodeLookUpTable) CheckPingStatus(){
 		}
 	}
 }
+
+
+//Replicas Functions
+func (store *DataNodeLookUpTable)GetCopyDestination(sources []string) (string,error){
+	store.mutex.RLock()
+	defer store.mutex.RUnlock()
+
+	// Get Destinations that aren't in the source list
+
+	for _, value := range store.data {
+		if value.alive {
+			exist:=false
+			for _,source :=range sources{
+				if(source == value.Id){
+					exist=true
+					break
+				}
+			}
+			if !exist{
+				return value.Id,nil
+			}
+
+		}
+	}
+	return "",nil
+}

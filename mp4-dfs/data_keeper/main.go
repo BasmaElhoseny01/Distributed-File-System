@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -19,7 +20,7 @@ import (
 	// 	"net"
 	// 	"os"
 	// 	"sync"
-	"time"
+	// "time"
 	// "context"
 
 	Reg "mp4-dfs/schema/register"
@@ -27,6 +28,7 @@ import (
 
 	download "mp4-dfs/schema/download"
 	upload "mp4-dfs/schema/upload"
+
 	// "sync"
 	// 	tr "mp4-dfs/schema/file_transfer"
 	hb "mp4-dfs/schema/heart_beat"
@@ -34,7 +36,7 @@ import (
 )
 
 type nodeKeeperServer struct {
-	// tr.UnimplementedFileTransferServiceServer
+	// tr.UnimplementedFileTransferServiceServer``
 	upload.UnimplementedUploadServiceServer
 	download.UnimplementedDownloadServiceServer
 	Id string
@@ -345,7 +347,7 @@ func main() {
 	id = response.GetDataKeeperId()
 	fmt.Printf("Registered To Master With ID %s\n", id)
 
-	// connToMaster.Close()
+	connToMaster.Close()
 
 	wg := sync.WaitGroup{}
 	// add 2 goroutines to the wait group

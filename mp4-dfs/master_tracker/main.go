@@ -240,12 +240,20 @@ func handleDataKeeper(master *masterServer) {
 	}
 	fmt.Println("Handle Data Keeper finished")
 }
-func periodicCheckup(master *masterServer){
+
+func checkIdleNodes(master *masterServer){
 	for{
-		println("Periodic Checkup")
 		//1. Check Ideal 
 		print("Check Ideal Nodes....\n")
 		master.data_node_lookup_table.CheckPingStatus()
+
+		// Sleep for 1 seconds before the next check
+		time.Sleep(1 * time.Second)
+	}
+
+}
+func checkUnConfirmedFiles(master *masterServer){
+	for{
 		// 2.Sent Notifications to Clients
 		println("Checking UnConfirmed Files...\n")
 		unconfirmedFiles:=master.files_lookup_table.CheckUnConfirmedFiles()
@@ -254,7 +262,6 @@ func periodicCheckup(master *masterServer){
 			master.sendClientConfirm(file)
 
 		}
-		// 	//3. Check For Replicas
 
 		// Sleep for 5 seconds before the next check
 		time.Sleep(5 * time.Second)
@@ -262,18 +269,41 @@ func periodicCheckup(master *masterServer){
 
 }
 
-// func checkReplication() {
-    
-    // // Iterate through distinct file instances
-    // files := distinctFileInstances()
-    // for _, file := range files {
-    //     sourceMachine := getSourceMachine(file)
-    //     for getInstanceCount(file) < 3 {
-    //         destinationMachine := selectMachineToCopyTo()
-    //         notifyMachineDataTransfer(sourceMachine, destinationMachine, file)
-    //     }
+func checkReplication(master *masterServer) {   
+    // Iterate through distinct file instances
+	// Getting non replicated files
+    files := master.files_lookup_table.CheckUnReplicatedFiles()
+    for _, file := range files {
+        sourceMachines := master.files_lookup_table.GetFileSourceMachines(file)
+		
+		// sourceMachine:=sourceMachines[0]
+
+		if len(sourceMachines)<3{
+			replica_count:=len(sourceMachines)
+			for{
+				if replica_count==3{
+					break
+				}
+				destinationMachine,_ := master.data_node_lookup_table.GetCopyDestination(sourceMachines)
+				if destinationMachine !=""{
+
+					// 1. Send Dst IP to Src
+					
+					// Append
+					//         notifyMachineDataTransfer(sourceMachine, destinationMachine, file)
+					// sourceMachines=append(sourceMachines, destinationMachine)
+				}
+			}
+		}
+    }
+
+	// 3. Check For Replicas
+
+	// Sleep for 10 seconds before the next check
+	// time.Sleep(10 * time.Second)
+
     // }
-// }
+}
 
 func (s *masterServer) sendClientConfirm(fileName string){
 	// Send Notification to Client
@@ -357,7 +387,15 @@ func main() {
 	}()
 	go func() {
 		defer wg.Done()
-		periodicCheckup(&master)
+		checkIdleNodes(&master)
+	}()
+	go func() {
+		defer wg.Done()
+		checkUnConfirmedFiles(&master)
+	}()
+	go func() {
+		defer wg.Done()
+		// checkReplication(&master)
 	}()
 
 	// wait for all goroutines to finish

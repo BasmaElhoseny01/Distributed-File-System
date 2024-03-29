@@ -112,3 +112,78 @@ func(store *FileLookUpTable) RemoveFile(fileName string)(){
     delete(store.data, fileName)
 	return
 }
+
+//GetUnReplicated Files
+func(store *FileLookUpTable) CheckUnReplicatedFiles()([]string){
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+
+	nonReplicatedFiles := make([]string, 0)
+
+	for _, file := range store.data {
+		// [TODO] Fix IDLE Nodes
+		if file.data_node_1=="-1" || file.replica_node_2 =="-1" ||  file.replica_node_3=="-1" {
+			nonReplicatedFiles = append(nonReplicatedFiles, file.file_name)
+		}
+	}
+	return nonReplicatedFiles
+}
+
+
+//GetUnReplicated Files
+func(store *FileLookUpTable) GetFileSourceMachines(fileName string)([]string){
+	// get all possible Source Machine for the file
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+
+	sourceMachines := make([]string, 0)
+
+	file:=store.data[fileName]
+
+	if file.data_node_1 !="-1"{
+		sourceMachines=append(sourceMachines,file.data_node_1)
+	}
+
+	if file.replica_node_2 !="-1"{
+		sourceMachines=append(sourceMachines,file.replica_node_2)
+	}
+
+	if file.replica_node_3 !="-1"{
+		sourceMachines=append(sourceMachines,file.replica_node_3)
+	}
+	return sourceMachines
+}
+
+
+// GetNonReplicaredNode
+
+// //
+// func(store *FileLookUpTable) x()([]string){
+// 	store.mutex.Lock()
+// 	defer store.mutex.Unlock()
+
+// 	nonReplicatedFiles := make([]string, 0)
+
+// 	for _, file := range store.data {
+// 		// [TODO] Fix IDLE Nodes
+// 		if file.data_node_1=="-1" || file.replica_node_2 =="-1" ||  file.replica_node_3=="-1" {
+// 			nonReplicatedFiles = append(nonReplicatedFiles, file.file_name)
+// 		}
+// 	}
+// 	return nonReplicatedFiles
+// }
+
+// // Replicate File
+// func(store *FileLookUpTable) ReplicateFile()([]string){
+// 	store.mutex.Lock()
+// 	defer store.mutex.Unlock()
+
+// 	nonReplicatedFiles := make([]string, 0)
+
+// 	for _, file := range store.data {
+// 		if file.replica_node_2 =="-1" ||  file.replica_node_3=="-1" {
+// 			nonReplicatedFiles = append(nonReplicatedFiles, file.file_name)
+// 		}
+// 	}
+// 	return nonReplicatedFiles
+// }
