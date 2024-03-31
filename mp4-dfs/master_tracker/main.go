@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"sync"
-	"time"
 
 	"google.golang.org/grpc"
 
@@ -45,6 +43,9 @@ func NewMasterServer() masterServer{
 		client_lookup_table:client_lookup.NewClientLookUpTable(),
 	}
 }
+
+
+// ################################################################ RPCs ################################################################
 // DataKeepersNodes Registration Services rpc
 func (s *masterServer) Register(ctx context.Context, in *reg.DataKeeperRegisterRequest) (*reg.DataKeeperRegisterResponse, error) {
 	// Add the data node to the lookup table
@@ -58,17 +59,6 @@ func (s *masterServer) Register(ctx context.Context, in *reg.DataKeeperRegisterR
 	fmt.Println(s.data_node_lookup_table.PrintDataNodeInfo(node_id))
 
 	return &reg.DataKeeperRegisterResponse{DataKeeperId: node_id}, nil
-}
-
-// HeartBeat Registration Services rpc
-func (s *masterServer) AlivePing(ctx context.Context, in *hb.AlivePingRequest) (*hb.AlivePingResponse, error) {
-	node_id:=in.GetDataKeeperId()
-	stamp,err:=s.data_node_lookup_table.UpdateNodeTimeStamp(node_id)
-
-	if err == nil {
-		fmt.Printf("Data Node '%s' Ping Time stamp Updated with %s \n", node_id,stamp.Format("2006-01-02 15:04:05"))
-	}
-	return &hb.AlivePingResponse{},nil
 }
 
 // UploadService RpcS
@@ -122,6 +112,8 @@ func (s *masterServer) NotifyMaster (ctx context.Context, in *upload.NotifyMaste
 	return &upload.NotifyMasterResponse{}, nil
 }
 
+
+// DownloadService RpcS
 func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadRequest) (*download.DownloadServerResponse, error) {
 	file_name:=in.GetFileName()
 	fmt.Println("Received Download Request",file_name)
@@ -184,6 +176,19 @@ func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadReque
 	},nil
 }
 
+// Heart Beat Services PRCs
+// HeartBeat Registration Services rpc
+func (s *masterServer) AlivePing(ctx context.Context, in *hb.AlivePingRequest) (*hb.AlivePingResponse, error) {
+	node_id:=in.GetDataKeeperId()
+	stamp,err:=s.data_node_lookup_table.UpdateNodeTimeStamp(node_id)
+
+	if err == nil {
+		fmt.Printf("Data Node '%s' Ping Time stamp Updated with %s \n", node_id,stamp.Format("2006-01-02 15:04:05"))
+	}
+	return &hb.AlivePingResponse{},nil
+}
+
+//################################################################ Go Routines ################################################################
 func handleClient(master *masterServer) {
 	fmt.Println("Handle Client ")
 	// listen to the port
@@ -218,7 +223,7 @@ func handleDataKeeper(master *masterServer) {
 		fmt.Println(err)
 	}
 	defer dataKeeper_listener.Close()
-	fmt.Printf("Listening to Data Keeper at Socket: %s\n",masterAddress)
+	fmt.Printf("Listening to Data Keeper at Socket: %s [Data]\n",masterAddress)
 
 	// define our master server and register the service
 	s := grpc.NewServer()
@@ -231,9 +236,6 @@ func handleDataKeeper(master *masterServer) {
 
 	// Register to DownloadService
 	download.RegisterDownloadServiceServer(s,master)
-
-	// Register in HeartBeat Service
-	hb.RegisterHeartBeatServiceServer(s,master)
 	
 	if err := s.Serve(dataKeeper_listener); err != nil {
 		fmt.Println(err)
@@ -241,131 +243,156 @@ func handleDataKeeper(master *masterServer) {
 	fmt.Println("Handle Data Keeper finished")
 }
 
-func checkIdleNodes(master *masterServer){
-	for{
-		//1. Check Ideal 
-		print("Check Ideal Nodes....\n")
-		master.data_node_lookup_table.CheckPingStatus()
 
-		// Sleep for 1 seconds before the next check
-		time.Sleep(1 * time.Second)
-	}
-
-}
-func checkUnConfirmedFiles(master *masterServer){
-	for{
-		// 2.Sent Notifications to Clients
-		println("Checking UnConfirmed Files...\n")
-		unconfirmedFiles:=master.files_lookup_table.CheckUnConfirmedFiles()
-		println(unconfirmedFiles)
-		for _, file := range unconfirmedFiles{
-			master.sendClientConfirm(file)
-
-		}
-
-		// Sleep for 5 seconds before the next check
-		time.Sleep(5 * time.Second)
-	}
-
-}
-
-func checkReplication(master *masterServer) {   
-    // Iterate through distinct file instances
-	// Getting non replicated files
-    files := master.files_lookup_table.CheckUnReplicatedFiles()
-    for _, file := range files {
-        sourceMachines := master.files_lookup_table.GetFileSourceMachines(file)
-		
-		// sourceMachine:=sourceMachines[0]
-
-		if len(sourceMachines)<3{
-			replica_count:=len(sourceMachines)
-			for{
-				if replica_count==3{
-					break
-				}
-				destinationMachine,_ := master.data_node_lookup_table.GetCopyDestination(sourceMachines)
-				if destinationMachine !=""{
-
-					// 1. Send Dst IP to Src
-					
-					// Append
-					//         notifyMachineDataTransfer(sourceMachine, destinationMachine, file)
-					// sourceMachines=append(sourceMachines, destinationMachine)
-				}
-			}
-		}
-    }
-
-	// 3. Check For Replicas
-
-	// Sleep for 10 seconds before the next check
-	// time.Sleep(10 * time.Second)
-
-    // }
-}
-
-func (s *masterServer) sendClientConfirm(fileName string){
-	// Send Notification to Client
-	// GetSocket for the Client 
-	client_socket:=s.client_lookup_table.GetClientSocket(fileName)
-	//1. Establish Connection to the Master
-	connToClient, err := grpc.Dial(client_socket, grpc.WithInsecure())
+func handleDataKeeperPing(master *masterServer) {
+	// listen to the port
+	masterAddress:=utils.GetMasterIP("ping")
+	dataKeeper_listener, err := net.Listen("tcp", masterAddress)
 	if err != nil {
-		fmt.Printf("Can not connect to Client at %s error: %v \n", client_socket,err)
+		fmt.Println(err)
 	}
-	defer func() {
-		connToClient.Close()
-		fmt.Printf("Closed Connection To Client %s\n", client_socket)
-	}()
-	fmt.Printf("Connected To Client %s\n", client_socket)
+	defer dataKeeper_listener.Close()
+	fmt.Printf("Listening to Data Keeper at Socket: %s [Ping]\n",masterAddress)
 
-	file_confirm_client:=upload.NewUploadServiceClient(connToClient)
-	fmt.Print("Sending Notification To Client ....\n")
+	// define our master server and register the service
+	s := grpc.NewServer()
+
+	// Register in HeartBeat Service
+	hb.RegisterHeartBeatServiceServer(s,master)
 	
-	// println("Sleeping")
-	// time.Sleep(50 * time.Second)
-	// // time.Sleep(10 * time.Second)
-	// println("GoodMorning")
-
-	res, err:=file_confirm_client.ConfirmUpload(context.Background(),&upload.ConfirmUploadRequest{
-		FileName: fileName,
-	})
-	if err!=nil{
-		fmt.Println("Failed to Send Notification to Client", err)
-		return
+	if err := s.Serve(dataKeeper_listener); err != nil {
+		fmt.Println(err)
 	}
-
-	response_status:=res.GetStatus()
-
-	
-	if response_status=="time_out"{
-		// [FIX] Check this Mechanism
-		fmt.Printf("File %s Confirmation is TimedOut So We will Drop it\n",fileName)
-		//Remove File
-		s.files_lookup_table.RemoveFile(fileName)
-
-		//[TODO Extra Send Request to DataNode to Remove the FIle Uploaded]
-
-		// Remove Client
-		s.client_lookup_table.RemoveClient(fileName)
-
-		return
-	}
-	if response_status=="wrong_file"{
-		println("WRONG file Between expected by Node and ConfirmationSent [Syntax Error]")
-		os.Exit(1)
-		// [TODO] Wrong file Confirmation Handling
-
-		return
-	}
-	
-	//Update File as Confirmed
-	s.files_lookup_table.ConfirmFile(fileName)
-	// Remove Client
-	s.client_lookup_table.RemoveClient(fileName)
-	fmt.Print("Removed Client :D\n")
+	fmt.Println("Handle Data Keeper Ping finished")
 }
+
+
+
+// func checkIdleNodes(master *masterServer){
+// 	for{
+// 		//1. Check Ideal 
+// 		print("Check Ideal Nodes....\n")
+// 		master.data_node_lookup_table.CheckPingStatus()
+
+// 		// Sleep for 1 seconds before the next check
+// 		time.Sleep(1 * time.Second)
+// 	}
+
+// }
+// func checkUnConfirmedFiles(master *masterServer){
+// 	for{
+// 		// 2.Sent Notifications to Clients
+// 		println("Checking UnConfirmed Files...\n")
+// 		unconfirmedFiles:=master.files_lookup_table.CheckUnConfirmedFiles()
+// 		println(unconfirmedFiles)
+// 		for _, file := range unconfirmedFiles{
+// 			master.sendClientConfirm(file)
+
+// 		}
+
+// 		// Sleep for 5 seconds before the next check
+// 		time.Sleep(5 * time.Second)
+// 	}
+
+// }
+
+// func checkReplication(master *masterServer) {   
+//     // Iterate through distinct file instances
+// 	// Getting non replicated files
+//     files := master.files_lookup_table.CheckUnReplicatedFiles()
+//     for _, file := range files {
+//         sourceMachines := master.files_lookup_table.GetFileSourceMachines(file)
+		
+// 		// sourceMachine:=sourceMachines[0]
+
+// 		if len(sourceMachines)<3{
+// 			replica_count:=len(sourceMachines)
+// 			for{
+// 				if replica_count==3{
+// 					break
+// 				}
+// 				destinationMachine,_ := master.data_node_lookup_table.GetCopyDestination(sourceMachines)
+// 				if destinationMachine !=""{
+
+// 					// 1. Send Dst IP to Src
+					
+// 					// Append
+// 					//         notifyMachineDataTransfer(sourceMachine, destinationMachine, file)
+// 					// sourceMachines=append(sourceMachines, destinationMachine)
+// 				}
+// 			}
+// 		}
+//     }
+
+// 	// 3. Check For Replicas
+
+// 	// Sleep for 10 seconds before the next check
+// 	// time.Sleep(10 * time.Second)
+
+//     // }
+// }
+
+// func (s *masterServer) sendClientConfirm(fileName string){
+// 	// Send Notification to Client
+// 	// GetSocket for the Client 
+// 	client_socket:=s.client_lookup_table.GetClientSocket(fileName)
+// 	//1. Establish Connection to the Master
+// 	connToClient, err := grpc.Dial(client_socket, grpc.WithInsecure())
+// 	if err != nil {
+// 		fmt.Printf("Can not connect to Client at %s error: %v \n", client_socket,err)
+// 	}
+// 	defer func() {
+// 		connToClient.Close()
+// 		fmt.Printf("Closed Connection To Client %s\n", client_socket)
+// 	}()
+// 	fmt.Printf("Connected To Client %s\n", client_socket)
+
+// 	file_confirm_client:=upload.NewUploadServiceClient(connToClient)
+// 	fmt.Print("Sending Notification To Client ....\n")
+	
+// 	// println("Sleeping")
+// 	// time.Sleep(50 * time.Second)
+// 	// // time.Sleep(10 * time.Second)
+// 	// println("GoodMorning")
+
+// 	res, err:=file_confirm_client.ConfirmUpload(context.Background(),&upload.ConfirmUploadRequest{
+// 		FileName: fileName,
+// 	})
+// 	if err!=nil{
+// 		fmt.Println("Failed to Send Notification to Client", err)
+// 		return
+// 	}
+
+// 	response_status:=res.GetStatus()
+
+	
+// 	if response_status=="time_out"{
+// 		// [FIX] Check this Mechanism
+// 		fmt.Printf("File %s Confirmation is TimedOut So We will Drop it\n",fileName)
+// 		//Remove File
+// 		s.files_lookup_table.RemoveFile(fileName)
+
+// 		//[TODO Extra Send Request to DataNode to Remove the FIle Uploaded]
+
+// 		// Remove Client
+// 		s.client_lookup_table.RemoveClient(fileName)
+
+// 		return
+// 	}
+// 	if response_status=="wrong_file"{
+// 		println("WRONG file Between expected by Node and ConfirmationSent [Syntax Error]")
+// 		os.Exit(1)
+// 		// [TODO] Wrong file Confirmation Handling
+
+// 		return
+// 	}
+	
+// 	//Update File as Confirmed
+// 	s.files_lookup_table.ConfirmFile(fileName)
+// 	// Remove Client
+// 	s.client_lookup_table.RemoveClient(fileName)
+// 	fmt.Print("Removed Client :D\n")
+// }
 
 func main() {
 	// [FIX] Serve MultiCalls
@@ -382,21 +409,27 @@ func main() {
 		handleClient(&master)
 	}()
 	go func() {
+		// Thread for handling DataNodes for Registration and Requests of Files
 		defer wg.Done()
 		handleDataKeeper(&master)
 	}()
 	go func() {
+		// Thread for handling Pings from Data Node
 		defer wg.Done()
-		checkIdleNodes(&master)
+		handleDataKeeperPing(&master)
 	}()
-	go func() {
-		defer wg.Done()
-		checkUnConfirmedFiles(&master)
-	}()
-	go func() {
-		defer wg.Done()
-		// checkReplication(&master)
-	}()
+	// go func() {
+	// 	defer wg.Done()
+	// 	checkIdleNodes(&master)
+	// }()
+	// go func() {
+	// 	defer wg.Done()
+	// 	checkUnConfirmedFiles(&master)
+	// }()
+	// go func() {
+	// 	defer wg.Done()
+	// 	// checkReplication(&master)
+	// }()
 
 	// wait for all goroutines to finish
 	wg.Wait()

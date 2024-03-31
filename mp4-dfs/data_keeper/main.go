@@ -198,11 +198,20 @@ func writeVideoToDisk(filePath string,fileData bytes.Buffer) error{
 }
 
 // Ping Thread
-func handlePing(connToMaster *grpc.ClientConn) {
-	
+func handlePing() {
+	fmt.Println("Handle Ping")
 
-	// Register to HeartBeats Service
-	client := hb.NewHeartBeatServiceClient(connToMaster)
+	// 1. Connect To Master [Ping Port]
+	masterPingAddress:=utils.GetMasterIP("ping")	
+	// Dial
+	connToPingMaster, err := grpc.Dial(masterPingAddress, grpc.WithInsecure())
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("Connected To Master at", masterPingAddress,"[Ping]")
+
+	// 2. Register to HeartBeats Service
+	client := hb.NewHeartBeatServiceClient(connToPingMaster)
 
 	for {
 		_, err := client.AlivePing(context.Background(), &hb.AlivePingRequest{DataKeeperId: id})
@@ -327,13 +336,12 @@ func main() {
 
 	// 2. Connect To Master
 	masterAddress:=utils.GetMasterIP("node")
-	fmt.Println("Connected To Master at", masterAddress)
-
-
+	// Dial
 	connToMaster, err := grpc.Dial(masterAddress, grpc.WithInsecure())
 	if err != nil {
 		fmt.Println(err)
 	}
+	fmt.Println("Connected To Master at", masterAddress,"[Data]")
 
 	// 3. Register to the master node
 	// Register to New Node Registration Service
@@ -347,6 +355,7 @@ func main() {
 	id = response.GetDataKeeperId()
 	fmt.Printf("Registered To Master With ID %s\n", id)
 
+	// Close Connection with the master for port of data [Not Ping]
 	connToMaster.Close()
 
 	wg := sync.WaitGroup{}
@@ -354,7 +363,7 @@ func main() {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		handlePing(connToMaster)	
+		handlePing()	
 	}()
 	go func() {
 		defer wg.Done()

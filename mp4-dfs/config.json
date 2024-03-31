@@ -2,6 +2,7 @@
     "master": {
         "ip": "localhost",
         "node_port": 5001,
-        "client_port": 5002
+        "node_ping_port": 5002,
+        "client_port": 5003
     }
 }

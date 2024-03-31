@@ -86,13 +86,14 @@ type ConfigInfo struct {
         IP   string `json:"ip"`
         ClientPort int `json:"client_port"`
         NodePort int `json:"node_port"`
+        NodePingPort int `json:"node_ping_port"`
     } `json:"master"`
 }
 
 
 func GetMasterIP(source string) (string){
-    if source!="node" && source!="client"{
-        fmt.Printf("GetMasterIP Option must be node or  source while %s was passed:\n", source)
+    if source!="node" && source!="client" && source!="ping"{
+        fmt.Printf("GetMasterIP Option must be node or source while %s was passed:\n", source)
         os.Exit(0)
     } 
 
@@ -114,6 +115,9 @@ func GetMasterIP(source string) (string){
     }
     if source=="node"{
         return fmt.Sprintf("%s:%s", configInfo.Master.IP, strconv.Itoa(configInfo.Master.NodePort))
+    } else if source=="ping"{
+        return fmt.Sprintf("%s:%s", configInfo.Master.IP, strconv.Itoa(configInfo.Master.NodePingPort))
+        
     }
     return fmt.Sprintf("%s:%s", configInfo.Master.IP, strconv.Itoa(configInfo.Master.ClientPort))
 }
