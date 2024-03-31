@@ -122,7 +122,7 @@ func(store *FileLookUpTable) CheckUnReplicatedFiles()([]string){
 
 	for _, file := range store.data {
 		// [TODO] Fix IDLE Nodes
-		if file.data_node_1=="-1" || file.replica_node_2 =="-1" ||  file.replica_node_3=="-1" {
+		if file.replica_node_2 =="-1" ||  file.replica_node_3=="-1" {
 			nonReplicatedFiles = append(nonReplicatedFiles, file.file_name)
 		}
 	}
@@ -139,6 +139,7 @@ func(store *FileLookUpTable) GetFileSourceMachines(fileName string)([]string){
 	sourceMachines := make([]string, 0)
 
 	file:=store.data[fileName]
+	//TODO:fix IDILE
 
 	if file.data_node_1 !="-1"{
 		sourceMachines=append(sourceMachines,file.data_node_1)

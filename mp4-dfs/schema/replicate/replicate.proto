@@ -37,8 +37,8 @@ message ConfirmCopyResponse{
 //services
 service ReplicateService{
  rpc NotifyToCopy(NotifyToCopyRequest) returns (NotifyToCopyResponse);
- rpc Copying(CopyingRequest) returns (stream CopyingResponse);
- rpc ConfirmCopy(ConfirmCopyRequest) returns (ConfirmCopyResponse);
+//  rpc Copying(CopyingRequest) returns (stream CopyingResponse);
+//  rpc ConfirmCopy(ConfirmCopyRequest) returns (ConfirmCopyResponse);
 }
 
 // protoc --go_out=. --go-grpc_out=.  ./schema/replicate/replicate.proto
