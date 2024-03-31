@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -267,18 +268,17 @@ func handleDataKeeperPing(master *masterServer) {
 }
 
 
+func checkIdleNodes(master *masterServer){
+	for{
+		//1. Check Ideal 
+		print("Check Ideal Nodes....\n")
+		master.data_node_lookup_table.CheckPingStatus()
 
-// func checkIdleNodes(master *masterServer){
-// 	for{
-// 		//1. Check Ideal 
-// 		print("Check Ideal Nodes....\n")
-// 		master.data_node_lookup_table.CheckPingStatus()
+		// Sleep for 5 seconds before the next check
+		time.Sleep(5 * time.Second)
+	}
 
-// 		// Sleep for 1 seconds before the next check
-// 		time.Sleep(1 * time.Second)
-// 	}
-
-// }
+}
 // func checkUnConfirmedFiles(master *masterServer){
 // 	for{
 // 		// 2.Sent Notifications to Clients
@@ -418,10 +418,10 @@ func main() {
 		defer wg.Done()
 		handleDataKeeperPing(&master)
 	}()
-	// go func() {
-	// 	defer wg.Done()
-	// 	checkIdleNodes(&master)
-	// }()
+	go func() {
+		defer wg.Done()
+		checkIdleNodes(&master)
+	}()
 	// go func() {
 	// 	defer wg.Done()
 	// 	checkUnConfirmedFiles(&master)
