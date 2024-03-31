@@ -3,6 +3,7 @@ package file_lookup
 import (
 	"fmt"
 	"sync"
+	"time"
 )
 
 // Enum for the file Status
@@ -35,6 +36,7 @@ type File struct {
 
 	confirmed bool
 	status  FileStatus
+	status_last_modified_timestamp time.Time
 }
 
 func NewFile(file_name string, data_node_1 string,path_1 string) File {
@@ -47,7 +49,7 @@ func NewFile(file_name string, data_node_1 string,path_1 string) File {
 
 		confirmed:false,
 		status:None,
-		// [TODO] Add last time state changed
+		status_last_modified_timestamp:time.Now(),
 	}
 }
 
@@ -95,8 +97,8 @@ func (store *FileLookUpTable)AddFile(mp4file *File) (error){
 func (store *FileLookUpTable) PrintFileInfo(fileName string )(string){
 	file:=store.data[fileName]
 
-	details := fmt.Sprintf("[File] Name: %s,confirmed : %t,at node [%s] ,at node [%s] ,at node [%s], Status:[%s]",
-	file.file_name,file.confirmed, file.data_node_1,file.replica_node_2,file.replica_node_3,file.status.String())
+	details := fmt.Sprintf("[File] Name: %s,confirmed : %t,at node [%s] ,at node [%s] ,at node [%s], Status:[%s], Status Last Modified: [%s]",
+	file.file_name,file.confirmed, file.data_node_1,file.replica_node_2,file.replica_node_3,file.status.String(),file.status_last_modified_timestamp.Format(time.RFC3339))
 	return details
 }
 
@@ -114,6 +116,10 @@ func(store *FileLookUpTable) SetFileStateToNone(fileName string)(){
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
 	store.data[fileName].status=None
+
+	// Update Timestamp for last status modification
+	store.data[fileName].status_last_modified_timestamp=time.Now()
+
 	return
 }
 
@@ -122,6 +128,10 @@ func(store *FileLookUpTable) SetFileStateToConfirming(fileName string)(){
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
 	store.data[fileName].status=Confirming
+
+	// Update Timestamp for last status modification
+	store.data[fileName].status_last_modified_timestamp=time.Now()
+
 	return
 }
 
@@ -130,6 +140,10 @@ func(store *FileLookUpTable) SetFileStateToReplicating(fileName string)(){
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
 	store.data[fileName].status=Replicating
+
+	// Update Timestamp for last status modification
+	store.data[fileName].status_last_modified_timestamp=time.Now()
+
 	return
 }
 
@@ -198,4 +212,27 @@ func(store *FileLookUpTable) GetFileSourceMachines(fileName string)([]string){
 		sourceMachines=append(sourceMachines,file.replica_node_3)
 	}
 	return sourceMachines
+}
+
+
+//Get IdleFiles Files
+func(store *FileLookUpTable) ResetFilesIdleStatus()([] string){
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+
+	reset_files:= make([]string, 0)
+
+
+	for _, file := range store.data {
+		// [TODO] Fix IDLE Nodes
+		if file.status==Replicating || file.status==Confirming {
+			if  time.Since(file.status_last_modified_timestamp).Seconds()>20{
+				// Set Back to None
+				store.SetFileStateToNone(file.file_name)
+
+				reset_files=append(reset_files, file.file_name)
+			}
+		}
+	}
+	return reset_files
 }

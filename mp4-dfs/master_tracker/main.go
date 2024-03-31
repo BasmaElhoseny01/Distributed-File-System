@@ -192,10 +192,12 @@ func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadReque
 // HeartBeat Registration Services rpc
 func (s *masterServer) AlivePing(ctx context.Context, in *hb.AlivePingRequest) (*hb.AlivePingResponse, error) {
 	node_id:=in.GetDataKeeperId()
-	stamp,err:=s.data_node_lookup_table.UpdateNodeTimeStamp(node_id)
+	// stamp,err:=s.data_node_lookup_table.UpdateNodeTimeStamp(node_id)
+	_,err:=s.data_node_lookup_table.UpdateNodeTimeStamp(node_id)
 
 	if err == nil {
-		fmt.Printf("Data Node '%s' Ping Time stamp Updated with %s \n", node_id,stamp.Format("2006-01-02 15:04:05"))
+		fmt.Print("")
+		// fmt.Printf("Data Node '%s' Ping Time stamp Updated with %s \n", node_id,stamp.Format("2006-01-02 15:04:05"))
 	}
 	return &hb.AlivePingResponse{},nil
 }
@@ -313,7 +315,7 @@ func checkUnConfirmedFiles(master *masterServer){
 
 func checkReplication(master *masterServer) {   
 	for {
-		println("Checking UnReplicated Files...\n")
+		println("Checking UnReplicated Files...")
 
 		// Iterate through distinct file instances
 		// Getting non replicated files
@@ -367,7 +369,7 @@ func checkReplication(master *masterServer) {
 				}else{
 					// Set Status Back To None
 					master.files_lookup_table.SetFileStateToNone(file)
-					println("No available Data Nodes to replicate the file.\n")
+					println("No available Data Nodes to replicate the file.")
 				}
 	
 						
@@ -379,6 +381,23 @@ func checkReplication(master *masterServer) {
     }
 }
 
+
+func ResetFileStatus(master *masterServer) {   
+	// Check if we File Status is Confirming or Replicating for more than 10 seconds then error has happened set back to None
+	for {
+		println("Periodic Checking for Files Status...\n")
+		reset_files:=master.files_lookup_table.ResetFilesIdleStatus()
+
+		fmt.Printf("Rested Files:[")
+		for _, reset_file := range reset_files {
+			fmt.Print(reset_file,"  ")
+		}
+		fmt.Println("]")		
+
+		// [FIX] Sleep for 20 seconds before the next check
+		time.Sleep(20 * time.Second)
+	}
+}
 // ###################################################### Utils ##########################################################
 func (s *masterServer) sendClientConfirm(fileName string){
 	// Set File Status Back To None
@@ -480,6 +499,10 @@ func main() {
 	go func() {
 		defer wg.Done()
 		checkReplication(&master)
+	}()
+	go func(){
+		defer wg.Done()
+		ResetFileStatus(&master)
 	}()
 
 	// wait for all goroutines to finish
