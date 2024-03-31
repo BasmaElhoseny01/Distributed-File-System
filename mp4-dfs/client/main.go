@@ -37,6 +37,7 @@ var confirmationReceived bool // Shared variable to track confirmation status
 var fileReceived string // Shared variable to track confirmation status
 var confirmationMutex sync.Mutex // Mutex for concurrent access to the confirmation status
 
+// ############################################# Rpcs #################################################################
 // ConfirmUpload rpc
 func (c *clientNode) ConfirmUpload(ctx context.Context, in *upload.ConfirmUploadRequest) (*upload.ConfirmUploadResponse, error) {
 	confirmationMutex.Lock()
@@ -55,6 +56,8 @@ func (c *clientNode) ConfirmUpload(ctx context.Context, in *upload.ConfirmUpload
 	return &upload.ConfirmUploadResponse{Status: "success"},nil
 }
 
+
+//  ######################################################## GO Routines ######################################################
 func handleUploadFile(path string,socket string) error{
 
 	// Check if the file exists
@@ -113,6 +116,67 @@ func handleUploadFile(path string,socket string) error{
 	return nil
 }
 
+
+func handleDownloadFile(servers_data []*download.Server, filename string){
+	// 1. Establish Connection to data node
+	if len(servers_data) == 1 {
+		fmt.Println("Only 1 server available")
+		// connect to the server
+		data_node := servers_data[0]
+
+		address := data_node.Ip + ":" + data_node.Port
+
+		filepath := data_node.FilePath
+
+		connToDataNode, err := grpc.Dial(address, grpc.WithInsecure())
+		if err != nil {
+			fmt.Println("Cannot connect to Data Node at", address)
+			return
+		}
+		defer connToDataNode.Close()
+
+		// send download request
+		downloadClient := download.NewDownloadServiceClient(connToDataNode)
+		stream, err := downloadClient.Download(context.Background(), &download.DownloadRequest{
+			FileName: filepath,
+		})
+		if err != nil {
+			fmt.Println("Cannot download file", err)
+			return
+		}
+
+		// create file
+		file, err := os.Create(filename)
+		if err != nil {
+			fmt.Println("Cannot create file", err)
+			return
+		}
+
+		// receive chunks
+		for {
+			chunk, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				fmt.Println("Cannot receive chunk", err)
+				return
+			}
+			_, err = file.Write(chunk.GetChuckData())
+			if err != nil {
+				fmt.Println("Cannot write chunk to file", err)
+				return
+			}
+		}
+		file.Close()
+		fmt.Println("File downloaded successfully")
+	} else {
+		fmt.Println("Multiple servers available")
+	}
+}
+
+// ############################################################ Utils ############################################################
+// Send File
 func sendFile(path string,uploadClient upload.UploadServiceClient){
 	fileName := filepath.Base(path)
 
@@ -188,66 +252,6 @@ func sendFile(path string,uploadClient upload.UploadServiceClient){
 	fmt.Println("Finished Sending File 🧨")
 }
 
-
-func handleDownloadFile(servers_data []*download.Server, filename string){
-	// 1. Establish Connection to data node
-	if len(servers_data) == 1 {
-		fmt.Println("Only 1 server available")
-		// connect to the server
-		data_node := servers_data[0]
-
-		address := data_node.Ip + ":" + data_node.Port
-
-		filepath := data_node.FilePath
-
-		connToDataNode, err := grpc.Dial(address, grpc.WithInsecure())
-		if err != nil {
-			fmt.Println("Cannot connect to Data Node at", address)
-			return
-		}
-		defer connToDataNode.Close()
-
-		// send download request
-		downloadClient := download.NewDownloadServiceClient(connToDataNode)
-		stream, err := downloadClient.Download(context.Background(), &download.DownloadRequest{
-			FileName: filepath,
-		})
-		if err != nil {
-			fmt.Println("Cannot download file", err)
-			return
-		}
-
-		// create file
-		file, err := os.Create(filename)
-		if err != nil {
-			fmt.Println("Cannot create file", err)
-			return
-		}
-
-		// receive chunks
-		for {
-			chunk, err := stream.Recv()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				fmt.Println("Cannot receive chunk", err)
-				return
-			}
-			_, err = file.Write(chunk.GetChuckData())
-			if err != nil {
-				fmt.Println("Cannot write chunk to file", err)
-				return
-			}
-		}
-		file.Close()
-		fmt.Println("File downloaded successfully")
-	} else {
-		fmt.Println("Multiple servers available")
-	}
-}
-
-
 func GetNodeSockets() (node_ip string, node_ports []string) {
 	// Take The port Nos from Command Line
 	if len(os.Args) < 2 {
@@ -302,11 +306,13 @@ func GetNodeSockets() (node_ip string, node_ports []string) {
 	return ip.String(),reachable_ports
 	}
 
+
 func main() {
 	fmt.Println("Welcome Client 😊")
 
 	// [TODO] 
 	// 1. Get Ip & Ports
+	// [Fix] this Func to be like that in DataNode
 	// ip,ports:=GetNodeSockets()
 	ip:="127.0.0.1"
 	// port:=ports[0]

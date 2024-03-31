@@ -88,7 +88,7 @@ func (s *masterServer) RequestUpload (ctx context.Context, in *upload.RequestUpl
 	// Get File Service Socket for Node
 	ip,port,err:=s.data_node_lookup_table.GetNodeFileServiceAddress(node_id)
 	if err != nil {
-		fmt.Printf("Can not Get DataNode [%i] Port %v\n",node_id,err)
+		fmt.Printf("Can not Get DataNode [%s] Port %v\n",node_id,err)
 		return  &upload.RequestUploadResponse{},err
 	}
 	node_socket:=ip+":"+port
@@ -128,6 +128,7 @@ func (s *masterServer) NotifyMaster (ctx context.Context, in *upload.NotifyMaste
 
 
 // DownloadService RpcS
+// Get Server RPC
 func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadRequest) (*download.DownloadServerResponse, error) {
 	file_name:=in.GetFileName()
 	fmt.Println("Received Download Request",file_name)
@@ -280,7 +281,6 @@ func handleDataKeeperPing(master *masterServer) {
 	fmt.Println("Handle Data Keeper Ping finished")
 }
 
-
 func checkIdleNodes(master *masterServer){
 	for{
 		//1. Check Ideal 
@@ -292,6 +292,7 @@ func checkIdleNodes(master *masterServer){
 	}
 
 }
+
 func checkUnConfirmedFiles(master *masterServer){
 	for{
 		// 2.Sent Notifications to Clients
@@ -369,6 +370,7 @@ func checkReplication(master *masterServer) {
     }
 }
 
+// ###################################################### Utils ##########################################################
 func (s *masterServer) sendClientConfirm(fileName string){
 	// Send Notification to Client
 	// GetSocket for the Client 

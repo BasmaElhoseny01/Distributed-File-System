@@ -52,6 +52,7 @@ func NewNodeKeeperServer(id string,ip string, file_port string ,replication_port
 	return &nodeKeeperServer{Id:id, Ip: ip,file_port:file_port, replication_port:replication_port}
 }
 
+// ############################################################## RPCs #################################################################
 // UploadFile rpc [client-streaming]
 func (s *nodeKeeperServer) UploadFile(stream upload.UploadService_UploadFileServer) error{
 	// Receive Video Info
