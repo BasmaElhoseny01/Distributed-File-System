@@ -128,11 +128,12 @@ func (s *masterServer) NotifyMaster (ctx context.Context, in *upload.NotifyMaste
 
 // DownloadService RpcS
 // Get Server RPC
+// BASMA
 func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadRequest) (*download.DownloadServerResponse, error) {
 	file_name:=in.GetFileName()
 	fmt.Println("Received Download Request",file_name)
 	// check if file already exist
-	exists,node_1,path_1,node_2,path_2,node_3,path_3 :=s.files_lookup_table.GetFile(file_name)
+	exists,node_1,node_2,node_3 :=s.files_lookup_table.GetFile(file_name)
 	if !exists {
 		// return error to client in response data
 		return  &download.DownloadServerResponse{Data: &download.DownloadServerResponse_Error{
@@ -162,21 +163,18 @@ func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadReque
 		servers = append(servers, &download.Server{
 			Ip:   Ip1,
 			Port: Port1,
-			FilePath: path_1,
 		})
 	}
 	if Ip2!=""{
 		servers = append(servers, &download.Server{
 			Ip:   Ip2,
 			Port: Port2,
-			FilePath: path_2,
 		})
 	}
 	if Ip3!=""{
 		servers = append(servers, &download.Server{
 			Ip:   Ip3,
 			Port: Port3,
-			FilePath: path_3,
 		})
 	}
 	// create list of servers
@@ -472,3 +470,5 @@ func main() {
 	// wait for all goroutines to finish
 	wg.Wait()
 }
+
+// go run .\master_tracker\main.go

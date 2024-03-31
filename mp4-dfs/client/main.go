@@ -126,7 +126,7 @@ func handleDownloadFile(servers_data []*download.Server, filename string){
 
 		address := data_node.Ip + ":" + data_node.Port
 
-		filepath := data_node.FilePath
+		// filepath := data_node.FilePath BASMA
 
 		connToDataNode, err := grpc.Dial(address, grpc.WithInsecure())
 		if err != nil {
@@ -138,7 +138,7 @@ func handleDownloadFile(servers_data []*download.Server, filename string){
 		// send download request
 		downloadClient := download.NewDownloadServiceClient(connToDataNode)
 		stream, err := downloadClient.Download(context.Background(), &download.DownloadRequest{
-			FileName: filepath,
+			FileName: filename,
 		})
 		if err != nil {
 			fmt.Println("Cannot download file", err)
@@ -354,13 +354,13 @@ func main() {
 			continue
 		}
 
-		fmt.Print("Enter file path: ")
-		var path string
-		fmt.Scanln(&path)
-		fileReceived=filepath.Base(path)
-
 		switch choice {
 		case 1:
+			fmt.Print("Enter file path: ")
+			var path string
+			fmt.Scanln(&path)
+			fileReceived=filepath.Base(path)
+
 			// Add a variable to track whether confirmation is received
 			confirmationMutex.Lock()
 			confirmationReceived = false
@@ -405,6 +405,7 @@ func main() {
 			var filename string
 			fmt.Scanln(&filename)
 			fmt.Print("Downloading ....\n")
+			
 			//1. Establish Connection to the Master
 			masterAddress := utils.GetMasterIP("client")
 			connToMaster, err := grpc.Dial(masterAddress, grpc.WithInsecure())

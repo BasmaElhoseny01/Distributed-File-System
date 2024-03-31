@@ -6,8 +6,25 @@ import (
 	"net"
 	"os"
 	"strconv"
+    "path/filepath"
 	// "time"
 )
+
+// emptyFolder empties the contents of the given folder
+func EmptyFolder(folderPath string) error {
+    // Iterate through the files in the folder
+    err := filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
+        if err != nil {
+            return err
+        }
+        // Remove regular files and directories (excluding the root folder itself)
+        if info.Mode().IsRegular() || info.IsDir() && path != folderPath {
+            return os.RemoveAll(path)
+        }
+        return nil
+    })
+    return err
+}
 
 func GetMyIp() (net.IP){
 	interfaces, err := net.Interfaces()

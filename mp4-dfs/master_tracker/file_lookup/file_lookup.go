@@ -9,11 +9,8 @@ type File struct {
 	// Define fields as needed
 	file_name      string
 	data_node_1    string
-	path_1         string
 	replica_node_2 string
-	path_2         string
 	replica_node_3 string
-	path_3         string
 
 	confirmed bool
 }
@@ -21,12 +18,11 @@ type File struct {
 func NewFile(file_name string, data_node_1 string,path_1 string) File {
 	return File{
 		file_name:    file_name,
+
 		data_node_1:  data_node_1,
-		path_1:       path_1,
 		replica_node_2: "-1",  //[FIX]
-		path_2:"", //[FIX]
 		replica_node_3: "-1", //[FIX]
-		path_3:"", //[FIX],
+
 		confirmed:false,
 	}
 }
@@ -47,13 +43,13 @@ func (store *FileLookUpTable)CheckFileExists(file_name string) (bool){
     return exists
 }
 
-func (store *FileLookUpTable)GetFile(file_name string) (bool,string,string,string,string,string,string){
+func (store *FileLookUpTable)GetFile(file_name string) (bool,string,string,string){
 	// check if file already exist
 	_, exists := store.data[file_name]
 	if !exists {
-		return false,"","","","","",""
+		return false,"","",""
 	}
-	return true,store.data[file_name].data_node_1,store.data[file_name].path_1,store.data[file_name].replica_node_2,store.data[file_name].path_2,store.data[file_name].replica_node_3,store.data[file_name].path_3
+	return true,store.data[file_name].data_node_1,store.data[file_name].replica_node_2,store.data[file_name].replica_node_3
 	
 	// return true,store.data[file_name].data_node_1,store.data[file_name].path_1,store.data[file_name].replica_node_2,store.data[file_name].path_2,store.data[file_name].replica_node_3,store.data[file_name].path_3
 }
@@ -75,8 +71,8 @@ func (store *FileLookUpTable)AddFile(mp4file *File) (error){
 func (store *FileLookUpTable) PrintFileInfo(fileName string )(string){
 	file:=store.data[fileName]
 
-	details := fmt.Sprintf("[File] Name: %s,confirmed : %t,at node [%s] in %s ,at node [%s] in %s ,at node [%s] in %s",
-	file.file_name,file.confirmed, file.data_node_1, file.path_1,file.replica_node_2,file.path_2,file.replica_node_3,file.path_3)
+	details := fmt.Sprintf("[File] Name: %s,confirmed : %t,at node [%s] ,at node [%s] ,at node [%s]",
+	file.file_name,file.confirmed, file.data_node_1,file.replica_node_2,file.replica_node_3)
 	return details
 }
 

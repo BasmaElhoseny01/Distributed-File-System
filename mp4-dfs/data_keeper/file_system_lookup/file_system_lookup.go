@@ -45,9 +45,16 @@ func (store *FileSystemLookUpTable)AddFile(mp4file *File) (error){
 
 
 //Get Info
-func (store *FileSystemLookUpTable) PrintFileInfo(fileName string )(string){
+func (store *FileSystemLookUpTable) PrintFileInfo(fileName string)(string){
 	file:=store.data[fileName]
 
 	details := fmt.Sprintf("[File System] Name: %s, at %s",file.file_name,file.path)
 	return details
+}
+
+// Get File Path
+func (store *FileSystemLookUpTable) GetFilePath(fileName string)(string){
+	file:=store.data[fileName]
+
+	return file.path
 }

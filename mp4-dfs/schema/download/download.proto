@@ -17,11 +17,12 @@ message DownloadResponse {
         bytes chuck_data = 2;
     }
 }
+
 message server{
     string port = 1;
     string ip = 2;
-    string file_path = 3;
 }
+
 message serverList{
     repeated server servers = 1;
 }
@@ -32,6 +33,8 @@ message DownloadServerResponse {
         string error = 2;
     }
 }
+
+// Services
 service DownloadService {
     rpc Download(DownloadRequest) returns (stream DownloadResponse) {}
     rpc GetServer(DownloadRequest) returns (DownloadServerResponse) {}

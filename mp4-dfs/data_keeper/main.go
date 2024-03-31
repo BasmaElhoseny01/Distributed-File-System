@@ -52,17 +52,22 @@ type nodeKeeperServer struct {
 }
 
 func NewNodeKeeperServer(id string,ip string, file_port string ,replication_port string) *nodeKeeperServer {
-	//1. Create Folder
-	_, err := os.Stat(id)
-	if os.IsNotExist(err) {
-		// Folder doesn't exist, create it
-		err := os.MkdirAll(id, os.ModePerm)
-		if err != nil {
-			fmt.Printf("Error Creating Folder %v\n",err)
-			os.Exit(1)
-		}
-		fmt.Printf("Folder %s created successfully\n",id)
-	}
+	// Create or empty folder based on its existence
+    if _, err := os.Stat(id); os.IsNotExist(err) {
+        // Folder doesn't exist, create it
+        if err := os.MkdirAll(id, os.ModePerm); err != nil {
+            fmt.Printf("Error Creating Folder %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("Folder %s created successfully\n", id)
+    } else {
+        // Folder exists, empty it
+        if err := utils.EmptyFolder(id); err != nil {
+            fmt.Printf("Error Emptying Folder %s: %v\n", id, err)
+            os.Exit(1)
+        }
+        fmt.Printf("Folder %s emptied successfully\n", id)
+    }
 
 	return &nodeKeeperServer{
 		Id:id, Ip: ip,file_port:file_port, replication_port:replication_port,
@@ -171,10 +176,14 @@ func (s *nodeKeeperServer) UploadFile(stream upload.UploadService_UploadFileServ
 // DownloadFile rpc [server-streaming]
 func (s *nodeKeeperServer) Download(req *download.DownloadRequest, stream download.DownloadService_DownloadServer) error {
 	fileName:=req.GetFileName()
+
+	// Get Path of this file in the node system
+	filePath:=s.file_system_lookup_table.GetFilePath(fileName)
+
 	// Open File
-	file, err := os.Open(fileName)
+	file, err := os.Open(filePath)
 	if err != nil {
-		fmt.Printf("Cannot open Video File at [%s] got error: %v\b", fileName,err)
+		fmt.Printf("Cannot open Video File at [%s] got error: %v\b", filePath,err)
 		return err
 	}
 	defer file.Close()
