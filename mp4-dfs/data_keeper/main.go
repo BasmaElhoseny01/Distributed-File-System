@@ -23,6 +23,7 @@ import (
 	// "time"
 	// "context"
 
+	"mp4-dfs/data_keeper/file_system_lookup"
 	Reg "mp4-dfs/schema/register"
 	utils "mp4-dfs/utils"
 
@@ -46,10 +47,27 @@ type nodeKeeperServer struct {
 	Ip string
 	file_port string
 	replication_port string
+
+	file_system_lookup_table file_system_lookup.FileSystemLookUpTable
 }
 
 func NewNodeKeeperServer(id string,ip string, file_port string ,replication_port string) *nodeKeeperServer {
-	return &nodeKeeperServer{Id:id, Ip: ip,file_port:file_port, replication_port:replication_port}
+	//1. Create Folder
+	_, err := os.Stat(id)
+	if os.IsNotExist(err) {
+		// Folder doesn't exist, create it
+		err := os.MkdirAll(id, os.ModePerm)
+		if err != nil {
+			fmt.Printf("Error Creating Folder %v\n",err)
+			os.Exit(1)
+		}
+		fmt.Printf("Folder %s created successfully\n",id)
+	}
+
+	return &nodeKeeperServer{
+		Id:id, Ip: ip,file_port:file_port, replication_port:replication_port,
+		file_system_lookup_table: file_system_lookup.NewFileSystemLookUpTable(),
+	}
 }
 
 // ############################################################## RPCs #################################################################
@@ -100,7 +118,16 @@ func (s *nodeKeeperServer) UploadFile(stream upload.UploadService_UploadFileServ
 	if err !=nil{
 		return err
 	}
-	
+
+	// Add File to Files LookUpTable
+	newFile:=file_system_lookup.NewFile(fileName,savePath)
+	err=s.file_system_lookup_table.AddFile(&newFile)
+	if err!=nil{
+		fmt.Printf("Error When adding file %s to file system lookup Table at %s\n error %v\n",fileName,savePath,err)
+	}
+	fmt.Printf("New File added Successfully\n")
+	fmt.Println(s.file_system_lookup_table.PrintFileInfo(fileName))
+
 	
 	//Send Final Response Close Connection With The Client
 	err = stream.SendAndClose(&upload.UploadFileResponse{})
@@ -205,17 +232,6 @@ func listenOnPort(server *grpc.Server, ip string ,port string) {
 }
 
 func writeVideoToDisk(filePath string,fileData bytes.Buffer) error{
-
-	//Create Folder
-	_, err := os.Stat(id)
-	if os.IsNotExist(err) {
-        // Folder doesn't exist, create it
-        err := os.MkdirAll(id, os.ModePerm)
-        if err != nil {
-            return err
-        }
-        fmt.Printf("Folder %s created successfully\n",id)
-	}
 	// 1. Create File
 	file, err := os.Create(filePath)
 	if err != nil {
@@ -230,6 +246,7 @@ func writeVideoToDisk(filePath string,fileData bytes.Buffer) error{
 		return err
 	}
 	fmt.Printf("Saved File at %s\n",filePath)
+
 	return nil
 }
 

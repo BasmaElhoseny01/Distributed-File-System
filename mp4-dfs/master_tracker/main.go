@@ -31,7 +31,6 @@ type masterServer struct {
 	hb.UnimplementedHeartBeatServiceServer
 	upload.UnimplementedUploadServiceServer
 	download.UnimplementedDownloadServiceServer
-	
 	cf.UnimplementedConfirmFileTransferServiceServer
 
 	data_node_lookup_table data_lookup.DataNodeLookUpTable
