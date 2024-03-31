@@ -5,7 +5,8 @@ package register;
 
 message DataKeeperRegisterRequest {
     string ip = 1;
-    repeated string ports = 2;
+    string file_port = 2;
+    string replication_port = 3;
 
 }
 message DataKeeperRegisterResponse {

@@ -8,8 +8,8 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"sync"
 	"time"
+	"sync"
 
 	"google.golang.org/grpc"
 
@@ -41,16 +41,15 @@ type nodeKeeperServer struct {
 	upload.UnimplementedUploadServiceServer
 	download.UnimplementedDownloadServiceServer
 	replicate.UnimplementedReplicateServiceServer
+
 	Id string
 	Ip string
-	// ports []string
-
-	client_port string
+	file_port string
 	replication_port string
 }
 
-func NewNodeKeeperServer(id string,ip string, client_port string ,replication_port string) *nodeKeeperServer {
-	return &nodeKeeperServer{Id:id, Ip: ip,client_port:client_port, replication_port:replication_port}
+func NewNodeKeeperServer(id string,ip string, file_port string ,replication_port string) *nodeKeeperServer {
+	return &nodeKeeperServer{Id:id, Ip: ip,file_port:file_port, replication_port:replication_port}
 }
 
 // UploadFile rpc [client-streaming]
@@ -173,6 +172,10 @@ func (s *nodeKeeperServer) Download(req *download.DownloadRequest, stream downlo
 	return nil
 
 }
+
+
+// Replication RPCS
+// Master Notify To Data Node to Copy
 func (s *nodeKeeperServer) NotifyToCopy (ctx context.Context, in *replicate.NotifyToCopyRequest) (*replicate.NotifyToCopyResponse,error){
 	file_name:=in.GetFileName()
 	srcAddress:=in.GetSrcAddress()
@@ -182,6 +185,14 @@ func (s *nodeKeeperServer) NotifyToCopy (ctx context.Context, in *replicate.Noti
 
 	return &replicate.NotifyToCopyResponse{Status: "ok"},nil
 }
+func (s *nodeKeeperServer) ConfirmCopy (ctx context.Context, in *replicate.ConfirmCopyRequest) (*replicate.ConfirmCopyResponse,error){
+	fmt.Printf("Confirm Copy")
+	return &replicate.ConfirmCopyResponse{Status: "ok"},nil
+}
+// func (s *nodeKeeperServer) Copying(in *replicate.CopyingRequest) (*replicate.CopyingResponse,error){
+// 	ret
+// }
+
 
 
 func writeVideoToDisk(filePath string,fileData bytes.Buffer) error{
@@ -260,9 +271,6 @@ func listenOnPort(server *grpc.Server, ip string ,port string) {
 // Client Thread
 func handleClient(data_keeper *nodeKeeperServer,ip string ,port string){
 	fmt.Println("Handle Client")
-	
-	// Define NodeKeeperServer
-	// data_keeper := NewNodeKeeperServer(id,ip,port)
 
 	// define Data Keeper Server and register the service
 	s := grpc.NewServer()
@@ -272,13 +280,9 @@ func handleClient(data_keeper *nodeKeeperServer,ip string ,port string){
 	
 	// Register to Download File Service [Server]
 	download.RegisterDownloadServiceServer(s, data_keeper)
-	
-	// Loop through each port and start a listener
-	// for _, port := range ports {
-        // go listenOnPort(s,ip,port)
-    // }
-	listenOnPort(s,ip,port)
 
+	// Listen to incoming requests on that port :D
+	listenOnPort(s,ip,port)
 
 	// Keep the main goroutine running
 	select {}
@@ -308,12 +312,13 @@ func handleReplicate(data_keeper *nodeKeeperServer,ip string ,port string){
 
 var id string
 
-func GetNodeSockets() (node_ip string, node_ports []string) {
+func GetNodeSockets() (node_ip string, file_service_port_no string ,replication_service_port_no string) {
 	// [Fix] Args List 
 	// Take The port Nos from Command Line
-	if len(os.Args) < 2 {
-        fmt.Println("Usage: data_node [<your_ip>] <port1> [<port2> ...]")
-        return
+	// Check if enough arguments are provided
+	  if len(os.Args) < 3 || len(os.Args) > 4 {
+        fmt.Println("Usage: data_node [<your_ip>] <file_service_port> <replication_service_port>")
+        os.Exit(1)
     }
 
 	// If the first argument is an IP address, parse it
@@ -336,48 +341,51 @@ func GetNodeSockets() (node_ip string, node_ports []string) {
         }
 	}
 
-	var ports []int
-
-    // Parse port numbers from the command line
-    for i := 1; i < len(os.Args); i++ {
-        port, err := strconv.Atoi(os.Args[i])
-        if err != nil {
-            fmt.Println("Invalid port number:", os.Args[i])
-        }else {
-			ports = append(ports, port)
-		}
+	
+    // // Parse client port
+    file_service_port, err := strconv.Atoi(os.Args[len(os.Args)-2])
+    if err != nil || file_service_port <= 0 || file_service_port > 65535 {
+        fmt.Println("Invalid file service port:", os.Args[len(os.Args)-2])
+        os.Exit(1)
     }
-	var reachable_ports []string
-	// Check if the IP address and ports are reachable
-    for _, port := range ports {
-        if !utils.IsPortOpen(ip.String(), port) {
-            fmt.Printf("Port %d is not reachable\n", port)
-        }else{
-			reachable_ports=append(reachable_ports, strconv.Itoa(port))
-		}
-	}
 
-	if len(ports) == 0 {
-		fmt.Println("At least one port is required.")
-		os.Exit(1)
+
+    // Parse node port
+    replication_service_port, err := strconv.Atoi(os.Args[len(os.Args)-1])
+    if err != nil || replication_service_port <= 0 || replication_service_port > 65535 {
+        fmt.Println("Invalid replication service port:", os.Args[len(os.Args)-1])
+        os.Exit(1)
     }
-	return ip.String(),reachable_ports
+
+
+	// Check if client port is reachable
+	  if !utils.IsPortOpen(ip.String(), file_service_port) {
+        fmt.Printf("File service port %d is not reachable\n", file_service_port)
+        os.Exit(1)
+    }
+
+    // Check if node port is reachable
+    if !utils.IsPortOpen(ip.String(), replication_service_port) {
+        fmt.Printf("Replication service port %d is not reachable\n", replication_service_port)
+        os.Exit(1)
+    }
+
+	return ip.String(),strconv.Itoa(file_service_port),strconv.Itoa(replication_service_port)
 }
 
 func main() {
 	fmt.Println("Hello From Data Node 📑")
 
 	// 1. Get Ip & Ports
-	ip,ports:=GetNodeSockets()
-	client_port:=ports[0]
-	data_node_port:=ports[1]
+	ip,file_service_port,replication_service_port:=GetNodeSockets()
 	// ip:="127.0.0.1"
-	// ports:=[]string{"8080"}
+	// file_service_port="8080"
+	// replication_service_port="8085"
 
 	// Now you can use ip and ports in your program
 	fmt.Println("IP address:", ip)
-	fmt.Println("Client port:", client_port)
-	fmt.Println("Data Node port:", data_node_port)
+	fmt.Println("File Service port:", file_service_port)
+	fmt.Println("Replication Service port:", replication_service_port)
 
 	// 2. Connect To Master
 	masterAddress:=utils.GetMasterIP("node")
@@ -392,20 +400,19 @@ func main() {
 	// Register to New Node Registration Service
 	client := Reg.NewDataKeeperRegisterServiceClient(connToMaster)
 
-	response, err := client.Register(context.Background(), &Reg.DataKeeperRegisterRequest{Ip: ip,Ports: ports})
+	response, err := client.Register(context.Background(), &Reg.DataKeeperRegisterRequest{Ip: ip, FilePort: file_service_port, ReplicationPort: replication_service_port})
 	if err != nil {
 		fmt.Println("Can't Register The Data Node to Master",err)
 		os.Exit(0)
 	}
 	id = response.GetDataKeeperId()
 	fmt.Printf("Registered To Master With ID %s\n", id)
-
-	// Create DataNode Server
-	// Define NodeKeeperServer
-	data_keeper_server := NewNodeKeeperServer(id,ip,client_port,data_node_port)
-
+	
 	// Close Connection with the master for port of data [Not Ping]
 	connToMaster.Close()
+
+	// Create DataNode Server
+	data_keeper_server := NewNodeKeeperServer(id,ip,file_service_port,replication_service_port)
 
 	wg := sync.WaitGroup{}
 	// add 2 goroutines to the wait group
@@ -416,12 +423,12 @@ func main() {
 	}()
 	go func() {
 		defer wg.Done()
-		handleClient(data_keeper_server,ip,client_port)
+		handleClient(data_keeper_server,ip,file_service_port)
 	}()
-	go func() {
-		defer wg.Done()
-		handleReplicate(data_keeper_server,ip,data_node_port)
-	}()
+	// go func() {
+	// 	defer wg.Done()
+	// 	handleReplicate(data_keeper_server,ip,data_node_port)
+	// }()
 	wg.Wait()
 }
 

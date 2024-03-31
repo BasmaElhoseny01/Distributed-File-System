@@ -3,7 +3,6 @@ package data_lookup
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -18,21 +17,22 @@ type DataNode struct {
 	load float32
 
 	Ip string
-	ports []string
+	file_port string
+	replication_port string
 }
 
-func NewDataNode(Ip string,ports []string) DataNode{
+func NewDataNode(Ip string,file_port string,replication_port string) DataNode{
 	return DataNode{
 		Id: "",
 		Ip: Ip,
-		ports:ports,
+		file_port:file_port ,
+		replication_port: replication_port,
 	}
 }
 type DataNodeLookUpTable struct{
 	mutex sync.RWMutex
 	data map[string]*DataNode //Map of key are strings and values are DataNodes
 	nodes_count int	
-
 }
 
 func NewDataNodeLookUpTable() DataNodeLookUpTable{
@@ -64,8 +64,8 @@ func (store *DataNodeLookUpTable)AddDataNode(dataNode *DataNode) (string,error){
 func (store *DataNodeLookUpTable) PrintDataNodeInfo(data_node_id string )(string){
 	data_node:=store.data[data_node_id]
 
-	details := fmt.Sprintf("[DataNode] ID: %s, IP: %s, Ports: %s, Alive: %v, Ping Timestamp: %s, Load: %.2f",
-	data_node.Id, data_node.Ip, strings.Join(data_node.ports, "-"), data_node.alive, data_node.ping_timestamp.Format(time.RFC3339), data_node.load)
+	details := fmt.Sprintf("[DataNode] ID: %s, IP: %s, File Port: %s, Replica Port: %s, Alive: %v, Ping Timestamp: %s, Load: %.2f",
+	data_node.Id, data_node.Ip, data_node.file_port,data_node.replication_port, data_node.alive, data_node.ping_timestamp.Format(time.RFC3339), data_node.load)
 	return details
 }
 
@@ -94,9 +94,9 @@ func (store *DataNodeLookUpTable)GetLeastLoadedNode() (string,error){
 	}
 
 	// [FIX] Return the Available Port replace ports[0] with that 
-	address:=store.data[min_node].Ip+":"+store.data[min_node].ports[0]
+	// address:=store.data[min_node].Ip+":"+store.data[min_node].ports[0]
 	
-	return address,nil
+	return min_node,nil
 }
 
 // Update DataNode status
@@ -109,20 +109,52 @@ func (store *DataNodeLookUpTable)UpdateNodeStatus(id string,status bool) error{
 	return nil
 }
 
-// get ip and port of a node
-func (store *DataNodeLookUpTable)GetNodeAddress(id string) (string,string){
+// get ip and port for replication services of a node
+func (store *DataNodeLookUpTable)GetNodeFileServiceAddress(id string) (string,string,error){
 	store.mutex.RLock()
 	defer store.mutex.RUnlock()
 	
 	// check if node alive
 	if !store.data[id].alive {
-		return "",""
+		return "","",nil
 	}
 	Ip:=store.data[id].Ip
-	port:=store.data[id].ports[0]
+	port:=store.data[id].file_port
 	
-	return Ip,port
+	return Ip,port,nil
 }
+
+// get ip and port for file services of a node
+func (store *DataNodeLookUpTable)GetNodeReplicationServiceAddress(id string) (string,string,error){
+	store.mutex.RLock()
+	defer store.mutex.RUnlock()
+	
+	// check if node alive
+	if !store.data[id].alive {
+		return "","",nil
+	}
+	Ip:=store.data[id].Ip
+	port:=store.data[id].replication_port
+	
+	return Ip,port,nil
+}
+
+// // get ip and port of a node
+// func (store *DataNodeLookUpTable)GetNodeAddress(id string,port_type string) (string,string){
+// 	store.mutex.RLock()
+// 	defer store.mutex.RUnlock()
+	
+// 	// check if node alive
+// 	if !store.data[id].alive {
+// 		return "",""
+// 	}
+// 	Ip:=store.data[id].Ip
+// 	if port_type=="file"
+// 	port:=store.data[id].ports[0]
+// 	else if
+	
+// 	return Ip,port
+// }
 
 func (store *DataNodeLookUpTable) CheckPingStatus(){
 	store.mutex.Lock()

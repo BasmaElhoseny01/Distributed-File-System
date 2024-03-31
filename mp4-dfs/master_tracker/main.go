@@ -17,13 +17,12 @@ import (
 	data_lookup "mp4-dfs/master_tracker/data_lookup"
 	file_lookup "mp4-dfs/master_tracker/file_lookup"
 
+	cf "mp4-dfs/schema/confirm_file_transfer"
 	download "mp4-dfs/schema/download"
 	hb "mp4-dfs/schema/heart_beat"
 	reg "mp4-dfs/schema/register"
-	replicate "mp4-dfs/schema/replicate"
 	upload "mp4-dfs/schema/upload"
-
-	cf "mp4-dfs/schema/confirm_file_transfer"
+	// replicate "mp4-dfs/schema/replicate"
 )
 
 
@@ -51,8 +50,12 @@ func NewMasterServer() masterServer{
 // ################################################################ RPCs ################################################################
 // DataKeepersNodes Registration Services rpc
 func (s *masterServer) Register(ctx context.Context, in *reg.DataKeeperRegisterRequest) (*reg.DataKeeperRegisterResponse, error) {
+	Ip:=in.GetIp()
+	file_port:=in.GetFilePort()
+	replication_port:=in.GetReplicationPort()
+
 	// Add the data node to the lookup table
-	new_data_node:=data_lookup.NewDataNode(in.GetIp(),in.GetPorts())
+	new_data_node:=data_lookup.NewDataNode(Ip,file_port,replication_port)
 	node_id, err := s.data_node_lookup_table.AddDataNode(&new_data_node)
 	if err!=nil{
 		fmt.Printf("Error When adding new Data Node with ID: %s",node_id)
@@ -76,11 +79,19 @@ func (s *masterServer) RequestUpload (ctx context.Context, in *upload.RequestUpl
     }
 
 	// Get the data node with the least load
-	node_socket,err:=s.data_node_lookup_table.GetLeastLoadedNode()
+	node_id,err:=s.data_node_lookup_table.GetLeastLoadedNode()
 	if err != nil {
-		fmt.Printf("Can not Get DataNode Port %v\n",err)
+		fmt.Printf("Can not Get Least Loaded Node DataNode  %v\n",err)
 		return  &upload.RequestUploadResponse{},err
 	}
+
+	// Get File Service Socket for Node
+	ip,port,err:=s.data_node_lookup_table.GetNodeFileServiceAddress(node_id)
+	if err != nil {
+		fmt.Printf("Can not Get DataNode [%i] Port %v\n",node_id,err)
+		return  &upload.RequestUploadResponse{},err
+	}
+	node_socket:=ip+":"+port
 
 	// Save The Socket for that client
 	client_socket:=in.GetClientSocket()
@@ -136,13 +147,13 @@ func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadReque
 	Port3 := ""
 	// Get the data node with the least load
 	if node_1!= "-1"{
-		Ip1,Port1 =s.data_node_lookup_table.GetNodeAddress(node_1)
+		Ip1,Port1,_ =s.data_node_lookup_table.GetNodeFileServiceAddress(node_1)
 	}
 	if node_2!= "-1"{
-		Ip2,Port2=s.data_node_lookup_table.GetNodeAddress(node_2)
+		Ip2,Port2,_=s.data_node_lookup_table.GetNodeFileServiceAddress(node_2)
 	}
 	if node_3!= "-1"{
-		Ip3,Port3 =s.data_node_lookup_table.GetNodeAddress(node_3)
+		Ip3,Port3,_ =s.data_node_lookup_table.GetNodeFileServiceAddress(node_3)
 	}
 	// create list of servers which contains ip and port
 	servers := []*download.Server{
@@ -298,65 +309,65 @@ func checkUnConfirmedFiles(master *masterServer){
 
 }
 
-func checkReplication(master *masterServer) {   
-	for {
-		println("Checking UnReplicated Files...\n")
+// func checkReplication(master *masterServer) {   
+// 	for {
+// 		println("Checking UnReplicated Files...\n")
 
-		// Iterate through distinct file instances
-		// Getting non replicated files
-		files := master.files_lookup_table.CheckUnReplicatedFiles()
-		for _, file := range files {
-			sourceMachines := master.files_lookup_table.GetFileSourceMachines(file)
+// 		// Iterate through distinct file instances
+// 		// Getting non replicated files
+// 		files := master.files_lookup_table.CheckUnReplicatedFiles()
+// 		for _, file := range files {
+// 			sourceMachines := master.files_lookup_table.GetFileSourceMachines(file)
 	
-			// Get first Source
-			srcId:=sourceMachines[0]
-			srcIP,srcPort:=master.data_node_lookup_table.GetNodeAddress(srcId)
-			srcAddress:=srcIP+":"+srcPort
-			// replica_count:=len(sourceMachines)
-			// for{
-			// 	if replica_count==3{
-			// 		break
-			// 	}
-				dstId,_ := master.data_node_lookup_table.GetCopyDestination(sourceMachines)
-				if dstId !=""{
-					// 1.Send Dst IP to Src
-					// Append
-					dstIP,dstPort:=master.data_node_lookup_table.GetNodeAddress(dstId)
-					dstAddress:=dstIP+":"+dstPort
-					connToDst, err := grpc.Dial(dstAddress, grpc.WithInsecure())
-					if err != nil {
-						fmt.Println(err)
-						fmt.Printf("Can not connect to Dst at %s, Error %s\n", dstAddress,err)
-					}
+// 			// Get first Source
+// 			srcId:=sourceMachines[0]
+// 			srcIP,srcPort:=master.data_node_lookup_table.GetNodeAddress(srcId)
+// 			srcAddress:=srcIP+":"+srcPort
+// 			// replica_count:=len(sourceMachines)
+// 			// for{
+// 			// 	if replica_count==3{
+// 			// 		break
+// 			// 	}
+// 				dstId,_ := master.data_node_lookup_table.GetCopyDestination(sourceMachines)
+// 				if dstId !=""{
+// 					// 1.Send Dst IP to Src
+// 					// Append
+// 					dstIP,dstPort:=master.data_node_lookup_table.GetNodeAddress(dstId)
+// 					dstAddress:=dstIP+":"+dstPort
+// 					connToDst, err := grpc.Dial(dstAddress, grpc.WithInsecure())
+// 					if err != nil {
+// 						fmt.Println(err)
+// 						fmt.Printf("Can not connect to Dst at %s, Error %s\n", dstAddress,err)
+// 					}
 	
-					fmt.Printf("Connected To Dst %s\n", dstAddress)
+// 					fmt.Printf("Connected To Dst %s\n", dstAddress)
 	
-					//2. Register as Client to Service replicate File offered by the datanode
-					replicateClient := replicate.NewReplicateServiceClient(connToDst)
+// 					//2. Register as Client to Service replicate File offered by the datanode
+// 					replicateClient := replicate.NewReplicateServiceClient(connToDst)
 	
-					//3- sending request
-					fmt.Printf("Sending copy request to data node\n")
-					_ ,err=replicateClient.NotifyToCopy(context.Background(),&replicate.NotifyToCopyRequest{
-						FileName: file,
-						SrcAddress: srcAddress,
-					})
-					if err!=nil{
-						fmt.Println("Failed to Notify Dst Node for Replication", err)
-					}
-					connToDst.Close()
+// 					//3- sending request
+// 					fmt.Printf("Sending copy request to data node\n")
+// 					_ ,err=replicateClient.NotifyToCopy(context.Background(),&replicate.NotifyToCopyRequest{
+// 						FileName: file,
+// 						SrcAddress: srcAddress,
+// 					})
+// 					if err!=nil{
+// 						fmt.Println("Failed to Notify Dst Node for Replication", err)
+// 					}
+// 					connToDst.Close()
 		
-				}else{
-					println("No available Data Nodes to replicate the file.\n")
-				}
+// 				}else{
+// 					println("No available Data Nodes to replicate the file.\n")
+// 				}
 	
 						
-				// 3. Check For Replicas
-		}
+// 				// 3. Check For Replicas
+// 		}
 		
-		// [FIX] Sleep for 10 seconds before the next check
-		time.Sleep(2 * time.Second)
-    }
-}
+// 		// [FIX] Sleep for 10 seconds before the next check
+// 		time.Sleep(2 * time.Second)
+//     }
+// }
 
 func (s *masterServer) sendClientConfirm(fileName string){
 	// Send Notification to Client
@@ -452,10 +463,10 @@ func main() {
 		defer wg.Done()
 		checkUnConfirmedFiles(&master)
 	}()
-	go func() {
-		defer wg.Done()
-		checkReplication(&master)
-	}()
+	// go func() {
+	// 	defer wg.Done()
+	// 	checkReplication(&master)
+	// }()
 
 	// wait for all goroutines to finish
 	wg.Wait()
