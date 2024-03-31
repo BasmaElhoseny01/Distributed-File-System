@@ -316,7 +316,7 @@ func main() {
 	// ip,ports:=GetNodeSockets()
 	ip:="127.0.0.1"
 	// port:=ports[0]
-	port := "12541"
+	port := "12874"
 	client_socket:=ip+":"+port
 
 	client:=newClientNode(client_socket)
@@ -405,7 +405,7 @@ func main() {
 			var filename string
 			fmt.Scanln(&filename)
 			fmt.Print("Downloading ....\n")
-			
+
 			//1. Establish Connection to the Master
 			masterAddress := utils.GetMasterIP("client")
 			connToMaster, err := grpc.Dial(masterAddress, grpc.WithInsecure())

@@ -215,7 +215,7 @@ func (s *nodeKeeperServer) Download(req *download.DownloadRequest, stream downlo
 func (s *nodeKeeperServer) NotifyToCopy (ctx context.Context, in *replicate.NotifyToCopyRequest) (*replicate.NotifyToCopyResponse,error){
 	file_name:=in.GetFileName()
 	srcAddress:=in.GetSrcAddress()
-	fmt.Printf("I get Notified to Copy File %s from Node %s",file_name,srcAddress)
+	fmt.Printf("I get Notified to Copy File %s from Node %s\n",file_name,srcAddress)
 	// 
 
 

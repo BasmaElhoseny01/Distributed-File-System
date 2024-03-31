@@ -297,8 +297,12 @@ func checkUnConfirmedFiles(master *masterServer){
 		unconfirmedFiles:=master.files_lookup_table.CheckUnConfirmedFiles()
 		println(unconfirmedFiles)
 		for _, file := range unconfirmedFiles{
-			master.sendClientConfirm(file)
+			// Set State for this File to be Confirming
+			// [TODO] Handle case of not confirmed must set the status flag back to None
+			master.files_lookup_table.SetFileStateToConfirming(file)
 
+			// Send Confirmation To Client
+			master.sendClientConfirm(file)
 		}
 
 		// Sleep for 5 seconds before the next check
@@ -315,17 +319,23 @@ func checkReplication(master *masterServer) {
 		// Getting non replicated files
 		files := master.files_lookup_table.CheckUnReplicatedFiles()
 		for _, file := range files {
+			// Set State for this File to be Replicating
+			// [TODO] Handle case of not confirmed must set the status flag back to None
+			master.files_lookup_table.SetFileStateToReplicating(file)
+
+			// Get Source Machines
 			sourceMachines := master.files_lookup_table.GetFileSourceMachines(file)
-	
-			// Get first Source
+			// First Source Machine
 			srcId:=sourceMachines[0]
 			srcIP,srcPort,_:=master.data_node_lookup_table.GetNodeReplicationServiceAddress(srcId)
 			srcAddress:=srcIP+":"+srcPort
+
 			// replica_count:=len(sourceMachines)
 			// for{
 			// 	if replica_count==3{
 			// 		break
 			// 	}
+				// Get Destination Machines
 				dstId,_ := master.data_node_lookup_table.GetCopyDestination(sourceMachines)
 				if dstId !=""{
 					// 1.Send Dst IP to Src
@@ -355,6 +365,8 @@ func checkReplication(master *masterServer) {
 					connToDst.Close()
 		
 				}else{
+					// Set Status Back To None
+					master.files_lookup_table.SetFileStateToNone(file)
 					println("No available Data Nodes to replicate the file.\n")
 				}
 	
@@ -369,6 +381,9 @@ func checkReplication(master *masterServer) {
 
 // ###################################################### Utils ##########################################################
 func (s *masterServer) sendClientConfirm(fileName string){
+	// Set File Status Back To None
+	defer s.files_lookup_table.SetFileStateToNone(fileName)
+
 	// Send Notification to Client
 	// GetSocket for the Client 
 	client_socket:=s.client_lookup_table.GetClientSocket(fileName)
