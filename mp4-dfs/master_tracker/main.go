@@ -21,8 +21,8 @@ import (
 	download "mp4-dfs/schema/download"
 	hb "mp4-dfs/schema/heart_beat"
 	reg "mp4-dfs/schema/register"
+	replicate "mp4-dfs/schema/replicate"
 	upload "mp4-dfs/schema/upload"
-	// replicate "mp4-dfs/schema/replicate"
 )
 
 
@@ -309,65 +309,65 @@ func checkUnConfirmedFiles(master *masterServer){
 
 }
 
-// func checkReplication(master *masterServer) {   
-// 	for {
-// 		println("Checking UnReplicated Files...\n")
+func checkReplication(master *masterServer) {   
+	for {
+		println("Checking UnReplicated Files...\n")
 
-// 		// Iterate through distinct file instances
-// 		// Getting non replicated files
-// 		files := master.files_lookup_table.CheckUnReplicatedFiles()
-// 		for _, file := range files {
-// 			sourceMachines := master.files_lookup_table.GetFileSourceMachines(file)
+		// Iterate through distinct file instances
+		// Getting non replicated files
+		files := master.files_lookup_table.CheckUnReplicatedFiles()
+		for _, file := range files {
+			sourceMachines := master.files_lookup_table.GetFileSourceMachines(file)
 	
-// 			// Get first Source
-// 			srcId:=sourceMachines[0]
-// 			srcIP,srcPort:=master.data_node_lookup_table.GetNodeAddress(srcId)
-// 			srcAddress:=srcIP+":"+srcPort
-// 			// replica_count:=len(sourceMachines)
-// 			// for{
-// 			// 	if replica_count==3{
-// 			// 		break
-// 			// 	}
-// 				dstId,_ := master.data_node_lookup_table.GetCopyDestination(sourceMachines)
-// 				if dstId !=""{
-// 					// 1.Send Dst IP to Src
-// 					// Append
-// 					dstIP,dstPort:=master.data_node_lookup_table.GetNodeAddress(dstId)
-// 					dstAddress:=dstIP+":"+dstPort
-// 					connToDst, err := grpc.Dial(dstAddress, grpc.WithInsecure())
-// 					if err != nil {
-// 						fmt.Println(err)
-// 						fmt.Printf("Can not connect to Dst at %s, Error %s\n", dstAddress,err)
-// 					}
+			// Get first Source
+			srcId:=sourceMachines[0]
+			srcIP,srcPort,_:=master.data_node_lookup_table.GetNodeReplicationServiceAddress(srcId)
+			srcAddress:=srcIP+":"+srcPort
+			// replica_count:=len(sourceMachines)
+			// for{
+			// 	if replica_count==3{
+			// 		break
+			// 	}
+				dstId,_ := master.data_node_lookup_table.GetCopyDestination(sourceMachines)
+				if dstId !=""{
+					// 1.Send Dst IP to Src
+					// Append
+					dstIP,dstPort,_:=master.data_node_lookup_table.GetNodeReplicationServiceAddress(dstId)
+					dstAddress:=dstIP+":"+dstPort
+					connToDst, err := grpc.Dial(dstAddress, grpc.WithInsecure())
+					if err != nil {
+						fmt.Println(err)
+						fmt.Printf("Can not connect to Dst at %s, Error %s\n", dstAddress,err)
+					}
 	
-// 					fmt.Printf("Connected To Dst %s\n", dstAddress)
+					fmt.Printf("Connected To Dst %s\n", dstAddress)
 	
-// 					//2. Register as Client to Service replicate File offered by the datanode
-// 					replicateClient := replicate.NewReplicateServiceClient(connToDst)
+					//2. Register as Client to Service replicate File offered by the datanode
+					replicateClient := replicate.NewReplicateServiceClient(connToDst)
 	
-// 					//3- sending request
-// 					fmt.Printf("Sending copy request to data node\n")
-// 					_ ,err=replicateClient.NotifyToCopy(context.Background(),&replicate.NotifyToCopyRequest{
-// 						FileName: file,
-// 						SrcAddress: srcAddress,
-// 					})
-// 					if err!=nil{
-// 						fmt.Println("Failed to Notify Dst Node for Replication", err)
-// 					}
-// 					connToDst.Close()
+					//3- sending request
+					fmt.Printf("Sending copy request to data node\n")
+					_ ,err=replicateClient.NotifyToCopy(context.Background(),&replicate.NotifyToCopyRequest{
+						FileName: file,
+						SrcAddress: srcAddress,
+					})
+					if err!=nil{
+						fmt.Println("Failed to Notify Dst Node for Replication", err)
+					}
+					connToDst.Close()
 		
-// 				}else{
-// 					println("No available Data Nodes to replicate the file.\n")
-// 				}
+				}else{
+					println("No available Data Nodes to replicate the file.\n")
+				}
 	
 						
-// 				// 3. Check For Replicas
-// 		}
+				// 3. Check For Replicas
+		}
 		
-// 		// [FIX] Sleep for 10 seconds before the next check
-// 		time.Sleep(2 * time.Second)
-//     }
-// }
+		// [FIX] Sleep for 10 seconds before the next check
+		time.Sleep(2 * time.Second)
+    }
+}
 
 func (s *masterServer) sendClientConfirm(fileName string){
 	// Send Notification to Client
@@ -463,10 +463,10 @@ func main() {
 		defer wg.Done()
 		checkUnConfirmedFiles(&master)
 	}()
-	// go func() {
-	// 	defer wg.Done()
-	// 	checkReplication(&master)
-	// }()
+	go func() {
+		defer wg.Done()
+		checkReplication(&master)
+	}()
 
 	// wait for all goroutines to finish
 	wg.Wait()

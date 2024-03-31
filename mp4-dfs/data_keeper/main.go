@@ -8,8 +8,8 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"time"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -173,8 +173,7 @@ func (s *nodeKeeperServer) Download(req *download.DownloadRequest, stream downlo
 
 }
 
-
-// Replication RPCS
+// Replication RPCs
 // Master Notify To Data Node to Copy
 func (s *nodeKeeperServer) NotifyToCopy (ctx context.Context, in *replicate.NotifyToCopyRequest) (*replicate.NotifyToCopyResponse,error){
 	file_name:=in.GetFileName()
@@ -185,15 +184,24 @@ func (s *nodeKeeperServer) NotifyToCopy (ctx context.Context, in *replicate.Noti
 
 	return &replicate.NotifyToCopyResponse{Status: "ok"},nil
 }
-func (s *nodeKeeperServer) ConfirmCopy (ctx context.Context, in *replicate.ConfirmCopyRequest) (*replicate.ConfirmCopyResponse,error){
-	fmt.Printf("Confirm Copy")
-	return &replicate.ConfirmCopyResponse{Status: "ok"},nil
+
+
+// #################################################################### Utils ########################################################
+func listenOnPort(server *grpc.Server, ip string ,port string) {
+	socket:=ip+":"+port
+    // Listen for incoming connections on the specified port
+	client_listener, err := net.Listen("tcp",socket )
+	fmt.Printf("Listening to Socket %s\n",socket)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer client_listener.Close()
+
+	if err := server.Serve(client_listener); err != nil {
+		fmt.Println(err)
+	}
 }
-// func (s *nodeKeeperServer) Copying(in *replicate.CopyingRequest) (*replicate.CopyingResponse,error){
-// 	ret
-// }
-
-
 
 func writeVideoToDisk(filePath string,fileData bytes.Buffer) error{
 
@@ -224,6 +232,7 @@ func writeVideoToDisk(filePath string,fileData bytes.Buffer) error{
 	return nil
 }
 
+// #################################################################### GO Routines ##################################################
 // Ping Thread
 func handlePing() {
 	fmt.Println("Handle Ping")
@@ -251,23 +260,6 @@ func handlePing() {
 	}
 }
 
-
-func listenOnPort(server *grpc.Server, ip string ,port string) {
-	socket:=ip+":"+port
-    // Listen for incoming connections on the specified port
-	client_listener, err := net.Listen("tcp",socket )
-	fmt.Printf("Listening to Socket %s\n",socket)
-
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer client_listener.Close()
-
-	if err := server.Serve(client_listener); err != nil {
-		fmt.Println(err)
-	}
-}
-
 // Client Thread
 func handleClient(data_keeper *nodeKeeperServer,ip string ,port string){
 	fmt.Println("Handle Client")
@@ -287,23 +279,18 @@ func handleClient(data_keeper *nodeKeeperServer,ip string ,port string){
 	// Keep the main goroutine running
 	select {}
 }
+
 // Replicate Thread
 func handleReplicate(data_keeper *nodeKeeperServer,ip string ,port string){
 	fmt.Println("Handle Replicate")
-	
-	// Define NodeKeeperServer
-	// data_keeper := NewNodeKeeperServer(id,ip,ports)
 
 	// define Data Keeper Server and register the service
 	s := grpc.NewServer()
 
-	// Register to Upload File Service [Server]
+	// Register to Replication Service [Server]
 	replicate.RegisterReplicateServiceServer(s, data_keeper)
-	
-	// Loop through each port and start a listener
-	// for _, port := range ports {
-    //     go listenOnPort(s,ip,port)
-    // }
+
+	// Listen to incoming requests on that port :D
 	listenOnPort(s,ip,port)
 
 	// Keep the main goroutine running
@@ -425,10 +412,10 @@ func main() {
 		defer wg.Done()
 		handleClient(data_keeper_server,ip,file_service_port)
 	}()
-	// go func() {
-	// 	defer wg.Done()
-	// 	handleReplicate(data_keeper_server,ip,data_node_port)
-	// }()
+	go func() {
+		defer wg.Done()
+		handleReplicate(data_keeper_server,ip,replication_service_port)
+	}()
 	wg.Wait()
 }
 
