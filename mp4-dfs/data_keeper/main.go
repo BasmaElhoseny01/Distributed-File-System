@@ -220,7 +220,7 @@ func handlePing() {
 		}
 		// sleep for 1 seconds
 		time.Sleep(1 * time.Second)
-		fmt.Println("Alive Ping Sent")
+		// fmt.Println("Alive Ping Sent")
 	}
 }
 

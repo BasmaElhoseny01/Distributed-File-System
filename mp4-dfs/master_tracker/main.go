@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -279,22 +280,22 @@ func checkIdleNodes(master *masterServer){
 	}
 
 }
-// func checkUnConfirmedFiles(master *masterServer){
-// 	for{
-// 		// 2.Sent Notifications to Clients
-// 		println("Checking UnConfirmed Files...\n")
-// 		unconfirmedFiles:=master.files_lookup_table.CheckUnConfirmedFiles()
-// 		println(unconfirmedFiles)
-// 		for _, file := range unconfirmedFiles{
-// 			master.sendClientConfirm(file)
+func checkUnConfirmedFiles(master *masterServer){
+	for{
+		// 2.Sent Notifications to Clients
+		println("Checking UnConfirmed Files...\n")
+		unconfirmedFiles:=master.files_lookup_table.CheckUnConfirmedFiles()
+		println(unconfirmedFiles)
+		for _, file := range unconfirmedFiles{
+			master.sendClientConfirm(file)
 
-// 		}
+		}
 
-// 		// Sleep for 5 seconds before the next check
-// 		time.Sleep(5 * time.Second)
-// 	}
+		// Sleep for 5 seconds before the next check
+		time.Sleep(5 * time.Second)
+	}
 
-// }
+}
 
 // func checkReplication(master *masterServer) {   
 //     // Iterate through distinct file instances
@@ -332,67 +333,67 @@ func checkIdleNodes(master *masterServer){
 //     // }
 // }
 
-// func (s *masterServer) sendClientConfirm(fileName string){
-// 	// Send Notification to Client
-// 	// GetSocket for the Client 
-// 	client_socket:=s.client_lookup_table.GetClientSocket(fileName)
-// 	//1. Establish Connection to the Master
-// 	connToClient, err := grpc.Dial(client_socket, grpc.WithInsecure())
-// 	if err != nil {
-// 		fmt.Printf("Can not connect to Client at %s error: %v \n", client_socket,err)
-// 	}
-// 	defer func() {
-// 		connToClient.Close()
-// 		fmt.Printf("Closed Connection To Client %s\n", client_socket)
-// 	}()
-// 	fmt.Printf("Connected To Client %s\n", client_socket)
+func (s *masterServer) sendClientConfirm(fileName string){
+	// Send Notification to Client
+	// GetSocket for the Client 
+	client_socket:=s.client_lookup_table.GetClientSocket(fileName)
+	//1. Establish Connection to the Master
+	connToClient, err := grpc.Dial(client_socket, grpc.WithInsecure())
+	if err != nil {
+		fmt.Printf("Can not connect to Client at %s error: %v \n", client_socket,err)
+	}
+	defer func() {
+		connToClient.Close()
+		fmt.Printf("Closed Connection To Client %s\n", client_socket)
+	}()
+	fmt.Printf("Connected To Client %s\n", client_socket)
 
-// 	file_confirm_client:=upload.NewUploadServiceClient(connToClient)
-// 	fmt.Print("Sending Notification To Client ....\n")
+	file_confirm_client:=upload.NewUploadServiceClient(connToClient)
+	fmt.Print("Sending Notification To Client ....\n")
 	
-// 	// println("Sleeping")
-// 	// time.Sleep(50 * time.Second)
-// 	// // time.Sleep(10 * time.Second)
-// 	// println("GoodMorning")
+	// println("Sleeping")
+	// time.Sleep(50 * time.Second)
+	// // time.Sleep(10 * time.Second)
+	// println("GoodMorning")
 
-// 	res, err:=file_confirm_client.ConfirmUpload(context.Background(),&upload.ConfirmUploadRequest{
-// 		FileName: fileName,
-// 	})
-// 	if err!=nil{
-// 		fmt.Println("Failed to Send Notification to Client", err)
-// 		return
-// 	}
+	res, err:=file_confirm_client.ConfirmUpload(context.Background(),&upload.ConfirmUploadRequest{
+		FileName: fileName,
+	})
+	if err!=nil{
+		fmt.Println("Failed to Send Notification to Client", err)
+		return
+	}
 
-// 	response_status:=res.GetStatus()
+	response_status:=res.GetStatus()
 
 	
-// 	if response_status=="time_out"{
-// 		// [FIX] Check this Mechanism
-// 		fmt.Printf("File %s Confirmation is TimedOut So We will Drop it\n",fileName)
-// 		//Remove File
-// 		s.files_lookup_table.RemoveFile(fileName)
+	if response_status=="time_out"{
+		// Checked this Mechanism and found best way to handle timed_out is to keep the file.
+		fmt.Printf("File %s Confirmation is TimedOut So We Only Remove Client From Table But The File is Kept\n",fileName)
+		//Remove File
+		// s.files_lookup_table.RemoveFile(fileName)
 
-// 		//[TODO Extra Send Request to DataNode to Remove the FIle Uploaded]
+		//[TODO Extra Send Request to DataNode to Remove the FIle Uploaded]
 
-// 		// Remove Client
-// 		s.client_lookup_table.RemoveClient(fileName)
+		// Remove Client
+		s.client_lookup_table.RemoveClient(fileName)
 
-// 		return
-// 	}
-// 	if response_status=="wrong_file"{
-// 		println("WRONG file Between expected by Node and ConfirmationSent [Syntax Error]")
-// 		os.Exit(1)
-// 		// [TODO] Wrong file Confirmation Handling
+		return
+	}
+	if response_status=="wrong_file"{
+		println("WRONG file Between expected by Node and ConfirmationSent [Syntax Error]")
+		os.Exit(1)
+		// [TODO] Wrong file Confirmation Handling
 
-// 		return
-// 	}
+		return
+	}
 	
-// 	//Update File as Confirmed
-// 	s.files_lookup_table.ConfirmFile(fileName)
-// 	// Remove Client
-// 	s.client_lookup_table.RemoveClient(fileName)
-// 	fmt.Print("Removed Client :D\n")
-// }
+	//Update File as Confirmed
+	s.files_lookup_table.ConfirmFile(fileName)
+	// Remove Client
+	s.client_lookup_table.RemoveClient(fileName)
+	fmt.Print("Removed Client :D\n")
+}
 
 func main() {
 	// [FIX] Serve MultiCalls
@@ -422,10 +423,10 @@ func main() {
 		defer wg.Done()
 		checkIdleNodes(&master)
 	}()
-	// go func() {
-	// 	defer wg.Done()
-	// 	checkUnConfirmedFiles(&master)
-	// }()
+	go func() {
+		defer wg.Done()
+		checkUnConfirmedFiles(&master)
+	}()
 	// go func() {
 	// 	defer wg.Done()
 	// 	// checkReplication(&master)
