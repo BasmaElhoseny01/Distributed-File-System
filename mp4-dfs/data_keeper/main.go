@@ -216,10 +216,60 @@ func (s *nodeKeeperServer) NotifyToCopy (ctx context.Context, in *replicate.Noti
 	file_name:=in.GetFileName()
 	srcAddress:=in.GetSrcAddress()
 	fmt.Printf("I get Notified to Copy File %s from Node %s\n",file_name,srcAddress)
-	// 
+
+	go func() {
+		handleCopy(file_name,srcAddress)
+	}()
 
 
+	// Response on Master
 	return &replicate.NotifyToCopyResponse{Status: "ok"},nil
+}
+
+// Coping rpc [server-streaming]
+func (s *nodeKeeperServer) Copying(req *replicate.CopyingRequest, stream replicate.ReplicateService_CopyingServer) error {
+	fileName:=req.GetFileName()
+
+	// Get Path of this file in the node system
+	filePath:=s.file_system_lookup_table.GetFilePath(fileName)
+
+	// Open File
+	file, err := os.Open(filePath)
+	if err != nil {
+		fmt.Printf("Cannot open Video File at [%s] got error: %v\b", filePath,err)
+		return err
+	}
+	defer file.Close()
+
+	//3. Send MetaData For Video File
+	err = stream.Send(&replicate.CopyingResponse{
+		Data: &replicate.CopyingResponse_FileInfo{FileInfo: &replicate.FileInfo{FileName: fileName}},
+	})
+	if err != nil {
+		fmt.Println("cannot send file info to server: ", err, stream.RecvMsg(nil))
+		return err
+	}
+
+	// Read File
+	chunk := make([]byte, 1024*1024) // 1MB
+	for {
+		n, err := file.Read(chunk)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			fmt.Println("Cannot read file",err)
+			return err
+		}
+		// Send Chunk
+		err = stream.Send(&replicate.CopyingResponse{Data: &replicate.CopyingResponse_ChuckData{ChuckData: chunk[:n]}})
+		if err != nil {
+			fmt.Println("Cannot send chunk",err)
+			return err
+		}
+	}
+	fmt.Println("Sent File Successfully")
+	return nil
 }
 
 
@@ -322,6 +372,58 @@ func handleReplicate(data_keeper *nodeKeeperServer,ip string ,port string){
 
 	// Keep the main goroutine running
 	select {}
+}
+
+// Copying Thread
+func handleCopy(file_name string, src_address string){
+	
+	//1. Establish connection with srcAddress
+	connToSrc,err:= grpc.Dial(src_address, grpc.WithInsecure())
+	if err != nil {
+		fmt.Println("Cannot connect to Data Node at", src_address)
+		return 
+	}
+	fmt.Printf("Connected To Src Data Node %s\n", src_address)
+	defer connToSrc.Close()
+
+	// 2. Register as Client
+	replicateClient:=replicate.NewReplicateServiceClient(connToSrc)
+	stream,err :=replicateClient.Copying(context.Background(),&replicate.CopyingRequest{
+		FileName: file_name,
+	})
+	if err != nil {
+		fmt.Println("Cannot download file", err)
+		return
+	}
+
+	// create file
+	file, err := os.Create(file_name)
+	if err != nil {
+		fmt.Println("Cannot create file", err)
+		return
+	}
+	for {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			fmt.Println("Cannot receive chunk", err)
+			return
+		}
+		_, err = file.Write(chunk.GetChuckData())
+		if err != nil {
+			fmt.Println("Cannot write chunk to file", err)
+			return
+		}
+	}
+	file.Close()
+	fmt.Println("File Copying successfully")
+
+	// Add File To Table
+
+	// 4. Send Ack to Master
+
 }
 
 var id string
