@@ -475,9 +475,7 @@ func GetNodeSockets() (node_ip string, file_service_port_no string ,replication_
 		os.Args = append(os.Args[:1], os.Args[2:]...)
 	}
 
-	// [Fix] Args List 
 	// Take The port Nos from Command Line
-
 	if(len(os.Args)<=1){
 		// go run ./data_keeper/main.go --> MyIP + Empty Port [Done]
 
@@ -653,14 +651,14 @@ func main() {
 }
 
 
-// go run .\data_keeper\main.go --> MyIp + Empty Port + Empty Port  [Handled]
-// go run .\data_keeper\main.go 127.0.0.1 8080 8085 [Handled]
-// go run .\data_keeper\main.go 8080 8085 [Handled]
-// go run .\data_keeper\main.go 127.0.0.1 [Handled]
+// go run .\data_keeper\main.go --> MyIp + Empty Port + Empty Port 
+// go run .\data_keeper\main.go 127.0.0.1 8080 8085 
+// go run .\data_keeper\main.go 8080 8085 
+// go run .\data_keeper\main.go 127.0.0.1 
 
 
 
 // go run .\data_keeper\main.go -break --> MyIp + Empty Port + Empty Port
 // go run .\data_keeper\main.go -break 127.0.0.1 9040 9806
 // go run .\data_keeper\main.go -break 8080 8085
-// go run .\data_keeper\main.go -break 127.0.0.1 [Handled]
+// go run .\data_keeper\main.go -break 127.0.0.1
