@@ -397,11 +397,14 @@ func handleCopy(file_name string, src_address string){
 	}
 
 	// create file
-	file, err := os.Create(file_name)
+	// Save To Disk
+	savePath:=id+"/"+file_name
+	file, err := os.Create(savePath)
 	if err != nil {
 		fmt.Println("Cannot create file", err)
 		return
 	}
+
 	for {
 		chunk, err := stream.Recv()
 		if err == io.EOF {
