@@ -32,6 +32,7 @@ type masterServer struct {
 	upload.UnimplementedUploadServiceServer
 	download.UnimplementedDownloadServiceServer
 	cf.UnimplementedConfirmFileTransferServiceServer
+	replicate.UnimplementedReplicateServiceServer
 
 	data_node_lookup_table data_lookup.DataNodeLookUpTable
 	files_lookup_table file_lookup.FileLookUpTable
@@ -202,6 +203,18 @@ func (s *masterServer) AlivePing(ctx context.Context, in *hb.AlivePingRequest) (
 	return &hb.AlivePingResponse{},nil
 }
 
+func (s *masterServer) ConfirmCopy(ctx context.Context, in*replicate.ConfirmCopyRequest)(*replicate.ConfirmCopyResponse,error){
+	file_name:=in.FileName
+	Node_id:=in.NodeId
+	err:=s.files_lookup_table.ReplicateFile(file_name,Node_id)
+	if err!=nil{
+		fmt.Println("Failed to update look table", err)
+	}
+	fmt.Printf("Received Ack For file %s from Node %s\n", file_name,Node_id)
+
+ 	return &replicate.ConfirmCopyResponse{Status: "OK"},nil
+}
+
 //################################################################ Go Routines ################################################################
 func handleClient(master *masterServer) {
 	fmt.Println("Handle Client ")
@@ -250,6 +263,10 @@ func handleDataKeeper(master *masterServer) {
 
 	// Register to DownloadService
 	download.RegisterDownloadServiceServer(s,master)
+
+
+	// Register to UploadService
+	replicate.RegisterReplicateServiceServer(s,master)
 	
 	if err := s.Serve(dataKeeper_listener); err != nil {
 		fmt.Println(err)

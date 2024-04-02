@@ -218,7 +218,7 @@ func (s *nodeKeeperServer) NotifyToCopy (ctx context.Context, in *replicate.Noti
 	fmt.Printf("I get Notified to Copy File %s from Node %s\n",file_name,srcAddress)
 
 	go func() {
-		handleCopy(file_name,srcAddress)
+		s.handleCopy(file_name,srcAddress)
 	}()
 
 
@@ -375,7 +375,7 @@ func handleReplicate(data_keeper *nodeKeeperServer,ip string ,port string){
 }
 
 // Copying Thread
-func handleCopy(file_name string, src_address string){
+func (s *nodeKeeperServer) handleCopy(file_name string, src_address string){
 	
 	//1. Establish connection with srcAddress
 	connToSrc,err:= grpc.Dial(src_address, grpc.WithInsecure())
@@ -384,7 +384,6 @@ func handleCopy(file_name string, src_address string){
 		return 
 	}
 	fmt.Printf("Connected To Src Data Node %s\n", src_address)
-	defer connToSrc.Close()
 
 	// 2. Register as Client
 	replicateClient:=replicate.NewReplicateServiceClient(connToSrc)
@@ -392,7 +391,7 @@ func handleCopy(file_name string, src_address string){
 		FileName: file_name,
 	})
 	if err != nil {
-		fmt.Println("Cannot download file", err)
+		fmt.Println("Cannot Copying file", err)
 		return
 	}
 
@@ -422,11 +421,37 @@ func handleCopy(file_name string, src_address string){
 	}
 	file.Close()
 	fmt.Println("File Copying successfully")
+	connToSrc.Close()
 
-	// Add File To Table
+	// Add File to Files LookUpTable
+	newFile:=file_system_lookup.NewFile(file_name,savePath)
+	err=s.file_system_lookup_table.AddFile(&newFile)
+	if err!=nil{
+		fmt.Printf("Error When adding file %s to file system lookup Table at %s\n error %v\n",file_name,savePath,err)
+	}
+	fmt.Printf("New File added Successfully\n")
+	fmt.Println(s.file_system_lookup_table.PrintFileInfo(file_name))	
 
 	// 4. Send Ack to Master
+	masterIP:=utils.GetMasterIP("node")
+	connToMaster, err := grpc.Dial(masterIP, grpc.WithInsecure())
+	if err != nil {
+		fmt.Println(err)
+		fmt.Printf("Can not connect to Master at %s, Error %s\n", masterIP,err)
+	}
 
+	fmt.Printf("Connected To Src %s\n", masterIP)
+	replicateClient=replicate.NewReplicateServiceClient(connToMaster)
+
+	fmt.Printf("Sending Ack Master\n")
+	_ ,err=replicateClient.ConfirmCopy(context.Background(),&replicate.ConfirmCopyRequest{
+		FileName: file_name,
+		NodeId: s.Id,
+	})
+	if err!=nil{
+		fmt.Println("Failed to sending ACK To Master", err)
+	}
+	connToMaster.Close()
 }
 
 var id string

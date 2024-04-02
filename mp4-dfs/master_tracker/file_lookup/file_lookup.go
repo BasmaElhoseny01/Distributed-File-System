@@ -92,6 +92,20 @@ func (store *FileLookUpTable)AddFile(mp4file *File) (error){
 	}
 	return nil
 }
+func (store *FileLookUpTable)ReplicateFile(file_name string ,node_id string)(error){
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+
+	if(store.data[file_name].data_node_1==""){
+		store.data[file_name].data_node_1=node_id
+	}else if(store.data[file_name].replica_node_2==""){
+		store.data[file_name].replica_node_2=node_id
+	}else if(store.data[file_name].replica_node_3==""){
+		store.data[file_name].replica_node_3=node_id
+	}
+	 return nil
+	
+}
 
 //Get Info
 func (store *FileLookUpTable) PrintFileInfo(fileName string )(string){
