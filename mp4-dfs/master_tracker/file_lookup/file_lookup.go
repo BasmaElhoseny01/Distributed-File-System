@@ -193,7 +193,7 @@ func(store *FileLookUpTable) CheckUnConfirmedFiles()([]string){
 }
 
 //GetUnReplicated Files
-func(store *FileLookUpTable) CheckUnReplicatedFiles()([]string){
+func(store *FileLookUpTable) CheckUnReplicatedFiles(IsNodeAlive func(string) (bool))([]string){
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
 
@@ -202,11 +202,14 @@ func(store *FileLookUpTable) CheckUnReplicatedFiles()([]string){
 	count_non_replica:=0
 	
 	for _, file := range store.data {
-		// [TODO] Fix IDLE Nodes
-		if (file.replica_node_2 ==""){
+		// [TODO] Fix IDLE Nodes check id node is idle
+		if (file.data_node_1 =="" || !IsNodeAlive(file.data_node_1)){
 			count_non_replica+=1
 		}
-		if (file.replica_node_3=="") {
+		if (file.replica_node_2 ==""||!IsNodeAlive(file.replica_node_2)){
+			count_non_replica+=1
+		}
+		if (file.replica_node_3==""||!IsNodeAlive(file.replica_node_3)) {
 			count_non_replica+=1
 		}
 

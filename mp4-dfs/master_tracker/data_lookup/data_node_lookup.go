@@ -193,3 +193,8 @@ func (store *DataNodeLookUpTable)GetCopyDestination(sources []string) (string,er
 	}
 	return "",nil
 }
+
+
+func (store *DataNodeLookUpTable)IsNodeAlive(node_id string) (bool){
+	return store.data[node_id].alive
+}

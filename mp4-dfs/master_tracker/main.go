@@ -340,7 +340,7 @@ func checkReplication(master *masterServer) {
 
 		// Iterate through distinct file instances
 		// Getting non replicated files
-		files := master.files_lookup_table.CheckUnReplicatedFiles()
+		files := master.files_lookup_table.CheckUnReplicatedFiles(master.data_node_lookup_table.IsNodeAlive)
 		for _, file := range files {
 			// Set State for this File to be Replicating
 			// [TODO] Handle case of not confirmed must set the status flag back to None
