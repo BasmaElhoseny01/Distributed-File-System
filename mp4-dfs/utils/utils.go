@@ -139,8 +139,18 @@ func GetMasterIP(source string) (string){
     return fmt.Sprintf("%s:%s", configInfo.Master.IP, strconv.Itoa(configInfo.Master.ClientPort))
 }
 
-func GetEmptyPort(ip string) (port string, err error) {
+func GetEmptyPort(ip string,not_equal string) (port string, err error) {
+    unique_ip,err:=strconv.Atoi(not_equal)
+
+    if err!=nil{
+       return "",fmt.Errorf("ERROR When Parsing ip to string in GetEmptyPort")
+    }
+
 	for p := 1024; p <= 65535; p++ {
+        if (p==unique_ip){
+            continue
+        }
+
 		addr := fmt.Sprintf("%s:%d", ip, p)
 		// Attempt to listen on the port
 		listener, err := net.Listen("tcp", addr)

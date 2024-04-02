@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -258,6 +259,18 @@ func sendFile(path string,uploadClient upload.UploadServiceClient){
 }
 
 func GetNodeSockets() (node_ip string, port string,breakEnabled bool) {
+	// Define flags
+	var breakFlag bool
+	flag.BoolVar(&breakFlag, "break", false, "Enable break")
+
+	// Parse flags
+	flag.Parse()
+
+	if breakFlag{
+		// Remove the element at index 2
+		os.Args = append(os.Args[:1], os.Args[2:]...)
+	}
+
 	if(len(os.Args)<=1){
 		// go run ./client/main.go --> MyIP + Empty Port [Done]
 
@@ -268,18 +281,18 @@ func GetNodeSockets() (node_ip string, port string,breakEnabled bool) {
 			os.Exit(1)
 		}
 		//No ports are passed then get empty one
-		port_no,err:=utils.GetEmptyPort(ip.String())
+		port_no,err:=utils.GetEmptyPort(ip.String(),"-1")
 		if err!=nil{
 			fmt.Printf("Error When Getting Empty Port for the Client Error:%v",err)
 			os.Exit(1)
 		}
 
-		return ip.String(),port_no,false
+		return ip.String(),port_no,breakFlag
 	}
 
 
-	if len(os.Args) > 3 {
-        fmt.Println("Usage: data_node [<your_ip>] [<port_1>]")
+	if len(os.Args) > 4 {
+        fmt.Println("Usage: client [-break] [<your_ip>] [<port>]")
 		os.Exit(1)
     }
 
@@ -291,7 +304,6 @@ func GetNodeSockets() (node_ip string, port string,breakEnabled bool) {
 			ip=ipAddr.IP
 		}
 	}
-
 
 	// [IP]
     if ip != nil {
@@ -326,7 +338,7 @@ func GetNodeSockets() (node_ip string, port string,breakEnabled bool) {
 		port=strconv.Itoa(p_in)
 	}else{
 		//No ports are passed then get empty one
-		p,err:=utils.GetEmptyPort(ip.String())
+		p,err:=utils.GetEmptyPort(ip.String(),"-1")
 		if err!=nil{
 			fmt.Printf("Error When Getting Empty Port for the Client Error:%v",err)
 			os.Exit(1)
@@ -335,10 +347,10 @@ func GetNodeSockets() (node_ip string, port string,breakEnabled bool) {
 	}
 
 
-	return ip.String(),port,breakEnabled
+	return ip.String(),port,breakFlag
 }
 
-var break_client bool
+// var break_client bool
 
 func main() {
 	fmt.Println("Welcome Client 😊")
@@ -360,7 +372,7 @@ func main() {
 	defer master_listener.Close()
 	fmt.Printf("Listening to Socket: %s\n",client_socket)
 	if breakEnabled{
-		break_client=true
+		// break_client=true
 		fmt.Println("You asked me to Break :(",breakEnabled)
 	}
 
@@ -489,3 +501,9 @@ func main() {
 // go run ./client/main.go 127.0.0.1 --> 127.0.0.1 + Empty Port [Done]
 // go run ./client/main.go 127.0.0.1 8090 --> 127.0.0.1 + 8090 [Done]
 // go run ./client/main.go 8090 --> MyIP + 8090 [Done]
+
+
+// go run ./client/main.go -break --> MyIP + Empty Port [Done]
+// go run ./client/main.go -break 127.0.0.1 --> 127.0.0.1 + Empty Port [Done]
+// go run ./client/main.go -break 127.0.0.1 8090 --> 127.0.0.1 + 8090 [Done]
+// go run ./client/main.go -break 8090 --> MyIP + 8090 [Done]
