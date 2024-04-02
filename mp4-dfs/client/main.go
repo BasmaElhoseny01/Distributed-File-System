@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -41,11 +40,6 @@ var confirmationMutex sync.Mutex // Mutex for concurrent access to the confirmat
 // ############################################# Rpcs #################################################################
 // ConfirmUpload rpc
 func (c *clientNode) ConfirmUpload(ctx context.Context, in *upload.ConfirmUploadRequest) (*upload.ConfirmUploadResponse, error) {
-	// if break_client{
-	// 	fmt.Println("Shutting Down ...")
-	// 	os.Exit(0)
-	// }
-
 	confirmationMutex.Lock()
 	defer confirmationMutex.Unlock()
 	if fileReceived == ""{
@@ -244,9 +238,6 @@ func sendFile(path string,uploadClient upload.UploadServiceClient){
 		}
 	}
 	
-	// [FIX] Same Port Used by Client to call the DataNode
-	// fmt.Println("LOPPPS")
-	// for{}
 
 	//Sending EndOfFile
 	fmt.Println("Sending End Of File To DataNode")
@@ -258,18 +249,7 @@ func sendFile(path string,uploadClient upload.UploadServiceClient){
 	fmt.Println("Finished Sending File 🧨")
 }
 
-func GetNodeSockets() (node_ip string, port string,breakEnabled bool) {
-	// Define flags
-	var breakFlag bool
-	flag.BoolVar(&breakFlag, "break", false, "Enable break")
-
-	// Parse flags
-	flag.Parse()
-
-	if breakFlag{
-		// Remove the element at index 2
-		os.Args = append(os.Args[:1], os.Args[2:]...)
-	}
+func GetNodeSockets() (node_ip string, port string) {
 
 	if(len(os.Args)<=1){
 		// go run ./client/main.go --> MyIP + Empty Port [Done]
@@ -287,12 +267,12 @@ func GetNodeSockets() (node_ip string, port string,breakEnabled bool) {
 			os.Exit(1)
 		}
 
-		return ip.String(),port_no,breakFlag
+		return ip.String(),port_no
 	}
 
 
 	if len(os.Args) > 4 {
-        fmt.Println("Usage: client [-break] [<your_ip>] [<port>]")
+        fmt.Println("Usage: client [<your_ip>] [<port>]")
 		os.Exit(1)
     }
 
@@ -347,19 +327,18 @@ func GetNodeSockets() (node_ip string, port string,breakEnabled bool) {
 	}
 
 
-	return ip.String(),port,breakFlag
+	return ip.String(),port
 }
 
 // var break_client bool
 
 func main() {
 	fmt.Println("Welcome Client 😊")
-	// [TODO] 
 	// 1. Get Ip & Ports
-	// [Fix] this Func to be like that in DataNode
-	ip,port,breakEnabled:=GetNodeSockets()
+	ip,port:=GetNodeSockets()
 	// ip:="127.0.0.1"
 	// port := "12874"
+
 	client_socket:=ip+":"+port
 
 	client:=newClientNode(client_socket)
@@ -371,11 +350,6 @@ func main() {
 	}
 	defer master_listener.Close()
 	fmt.Printf("Listening to Socket: %s\n",client_socket)
-	if breakEnabled{
-		// break_client=true
-		fmt.Println("You asked me to Break :(",breakEnabled)
-	}
-
 
 	
 	s := grpc.NewServer()
@@ -486,6 +460,7 @@ func main() {
 				break
 			}
 			
+			
 			servers_list := servers.Servers
 			// print servers list
 			fmt.Println("servers list",servers_list)
@@ -501,9 +476,3 @@ func main() {
 // go run ./client/main.go 127.0.0.1 --> 127.0.0.1 + Empty Port [Done]
 // go run ./client/main.go 127.0.0.1 8090 --> 127.0.0.1 + 8090 [Done]
 // go run ./client/main.go 8090 --> MyIP + 8090 [Done]
-
-
-// go run ./client/main.go -break --> MyIP + Empty Port [Done]
-// go run ./client/main.go -break 127.0.0.1 --> 127.0.0.1 + Empty Port [Done]
-// go run ./client/main.go -break 127.0.0.1 8090 --> 127.0.0.1 + 8090 [Done]
-// go run ./client/main.go -break 8090 --> MyIP + 8090 [Done]

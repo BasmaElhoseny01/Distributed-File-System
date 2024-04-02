@@ -146,7 +146,6 @@ func(store *FileLookUpTable) CheckUnReplicatedFiles(IsNodeAlive func(string) (bo
 	count_non_replica:=0
 	
 	for _, file := range store.data {
-		// [TODO] Fix IDLE Nodes check id node is idle
 		if (file.data_node_1 =="" || !IsNodeAlive(file.data_node_1)){
 			count_non_replica+=1
 		}

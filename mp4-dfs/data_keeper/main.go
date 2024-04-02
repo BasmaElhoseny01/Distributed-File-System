@@ -143,7 +143,7 @@ func (s *nodeKeeperServer) UploadFile(stream upload.UploadService_UploadFileServ
 	}
 	fmt.Println("Connection With Client is Closed :D")
 
-	//(2) [TODO]Confirm To master the File Transfer
+	//(2) Confirm To master the File Transfer
 	// Establish Connection To Master
 	masterAddress:=utils.GetMasterIP("node")
 	connToMaster, err := grpc.Dial(masterAddress, grpc.WithInsecure())
@@ -164,7 +164,6 @@ func (s *nodeKeeperServer) UploadFile(stream upload.UploadService_UploadFileServ
 	})
 	if err!=nil{
 		fmt.Printf("Failed to Notify Master with uploading file %s %v\n",fileName,err)
-		// [TODO] Delete the file because saving is useless
 		return err
 	}
 	fmt.Printf("Sent File %s Upload Confirm To Master\n",fileName)
@@ -595,6 +594,7 @@ func main() {
 	// ip:="127.0.0.1"
 	// file_service_port="8080"
 	// replication_service_port="8085"
+	//breakEnabled=false
 
 	// Now you can use ip and ports in your program
 	fmt.Println("IP address:", ip)

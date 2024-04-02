@@ -388,7 +388,7 @@ func checkReplication(master *masterServer) {
 		}
 		
 		// [FIX] Sleep for 10 seconds before the next check
-		time.Sleep(2 * time.Second)
+		time.Sleep(10 * time.Second)
     }
 }
 
@@ -398,15 +398,7 @@ func ResetIdleFiles(master *masterServer) {
 	for {
 		println("Checking Stuck Files ....\n")
 		master.files_lookup_table.ResetIdleFiles(20.0)
-		// 1. Idle Replicating
-		// reset_files:=master.files_lookup_table.ResetFilesIdleStatus()
-
-		// fmt.Printf("Rested Files:[")
-		// for _, reset_file := range reset_files {
-		// 	fmt.Print(reset_file,"  ")
-		// }
-		// fmt.Println("]")		
-
+		
 		// [FIX] Sleep for 20 seconds before the next check
 		time.Sleep(20 * time.Second)
 	}
@@ -453,7 +445,7 @@ func (s *masterServer) sendClientConfirm(fileName string){
 		// Checked this Mechanism and found best way to handle timed_out is to keep the file.
 		fmt.Printf("File %s Confirmation is TimedOut So We Only Remove Client From Table But The File is Kept\n",fileName)
 
-		// The Confirming of that file is set back to false :D
+		// The Confirming of that file is set back to false :D Above
 
 		// Remove Client
 		s.client_lookup_table.RemoveClient(fileName)
@@ -464,7 +456,6 @@ func (s *masterServer) sendClientConfirm(fileName string){
 		println("WRONG file Between expected by Node and ConfirmationSent [Syntax Error]")
 		os.Exit(1)
 		// [TODO] Wrong file Confirmation Handling
-
 		return
 	}
 	
@@ -476,7 +467,6 @@ func (s *masterServer) sendClientConfirm(fileName string){
 }
 
 func main() {
-	// [FIX] Serve MultiCalls
 	// Thread to listen to alive pings from data keepers
 	fmt.Println("Hello From Master Node 😎")
 	// Create Master Server
