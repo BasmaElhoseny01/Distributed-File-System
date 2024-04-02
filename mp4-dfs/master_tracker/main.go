@@ -401,17 +401,19 @@ func checkReplication(master *masterServer) {
 }
 
 
-func ResetFileStatus(master *masterServer) {   
+func ResetIdleFiles(master *masterServer) {   
 	// Check if we File Status is Confirming or Replicating for more than 10 seconds then error has happened set back to None
 	for {
-		println("Periodic Checking for Files Status...\n")
-		reset_files:=master.files_lookup_table.ResetFilesIdleStatus()
+		println("Checking Stuck Files ....\n")
+		master.files_lookup_table.ResetIdleFiles(20.0)
+		// 1. Idle Replicating
+		// reset_files:=master.files_lookup_table.ResetFilesIdleStatus()
 
-		fmt.Printf("Rested Files:[")
-		for _, reset_file := range reset_files {
-			fmt.Print(reset_file,"  ")
-		}
-		fmt.Println("]")		
+		// fmt.Printf("Rested Files:[")
+		// for _, reset_file := range reset_files {
+		// 	fmt.Print(reset_file,"  ")
+		// }
+		// fmt.Println("]")		
 
 		// [FIX] Sleep for 20 seconds before the next check
 		time.Sleep(20 * time.Second)
@@ -519,10 +521,10 @@ func main() {
 		defer wg.Done()
 		checkReplication(&master)
 	}()
-	// go func(){
-	// 	defer wg.Done()
-	// 	ResetFileStatus(&master)
-	// }()
+	go func(){
+		defer wg.Done()
+		ResetIdleFiles(&master)
+	}()
 
 	// wait for all goroutines to finish
 	wg.Wait()

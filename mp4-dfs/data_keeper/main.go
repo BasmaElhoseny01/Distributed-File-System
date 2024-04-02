@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -395,6 +396,11 @@ func (s *nodeKeeperServer) handleCopy(file_name string, src_address string){
 		return
 	}
 
+	if break_node{
+		fmt.Println("Shutting Down ...")
+		os.Exit(0)
+	}
+
 	// create file
 	// Save To Disk
 	savePath:=id+"/"+file_name
@@ -456,14 +462,26 @@ func (s *nodeKeeperServer) handleCopy(file_name string, src_address string){
 
 var id string
 
-func GetNodeSockets() (node_ip string, file_service_port_no string ,replication_service_port_no string) {
+func GetNodeSockets() (node_ip string, file_service_port_no string ,replication_service_port_no string,breakEnabled bool) {
+	// Define flags
+	var breakFlag bool
+	flag.BoolVar(&breakFlag, "break", false, "Enable break")
+
+	// Parse flags
+	flag.Parse()
+	
 	// [Fix] Args List 
 	// Take The port Nos from Command Line
+
 	// Check if enough arguments are provided
-	  if len(os.Args) < 3 || len(os.Args) > 4 {
-        fmt.Println("Usage: data_node [<your_ip>] <file_service_port> <replication_service_port>")
+	  if len(os.Args) < 2 || len(os.Args) > 5 {
+		
+        fmt.Println("Usage: data_node [-break] [<your_ip>] <file_service_port> <replication_service_port>")
         os.Exit(1)
     }
+
+	// Set break flag
+	breakEnabled = breakFlag
 
 	// If the first argument is an IP address, parse it
     ip := net.ParseIP(os.Args[1])
@@ -514,14 +532,16 @@ func GetNodeSockets() (node_ip string, file_service_port_no string ,replication_
         os.Exit(1)
     }
 
-	return ip.String(),strconv.Itoa(file_service_port),strconv.Itoa(replication_service_port)
+	return ip.String(),strconv.Itoa(file_service_port),strconv.Itoa(replication_service_port),breakEnabled
 }
+
+var break_node bool=false
 
 func main() {
 	fmt.Println("Hello From Data Node 📑")
 
 	// 1. Get Ip & Ports
-	ip,file_service_port,replication_service_port:=GetNodeSockets()
+	ip,file_service_port,replication_service_port,breakEnabled:=GetNodeSockets()
 	// ip:="127.0.0.1"
 	// file_service_port="8080"
 	// replication_service_port="8085"
@@ -530,6 +550,10 @@ func main() {
 	fmt.Println("IP address:", ip)
 	fmt.Println("File Service port:", file_service_port)
 	fmt.Println("Replication Service port:", replication_service_port)
+	if breakEnabled{
+		break_node=true
+		fmt.Println("You asked me to Break",breakEnabled)
+	}
 
 	// 2. Connect To Master
 	masterAddress:=utils.GetMasterIP("node")

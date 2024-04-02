@@ -292,3 +292,21 @@ func (store *FileLookUpTable) RemoveReplicatingNode(file_name string,node_id str
 		}
 	}
 }
+
+
+func (store *FileLookUpTable) ResetIdleFiles(max float64){
+	// Iterate over the map to find and Idle Files
+	for _, file := range store.data {
+		// Idle While Replicating
+		for key := range file.replicating_nodes {
+			last_time_stamp:=file.replicating_nodes[key]
+
+			if time.Since(last_time_stamp).Seconds()>max{
+				// Break Replicating 
+				delete(file.replicating_nodes, key)
+				fmt.Printf("[Broke Replication] File %s By Node %s\n",file.file_name,key)
+			}
+		}
+		// Idle While Confirming
+	}
+}
