@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
-    "path/filepath"
 	// "time"
 )
 
@@ -137,4 +137,18 @@ func GetMasterIP(source string) (string){
         
     }
     return fmt.Sprintf("%s:%s", configInfo.Master.IP, strconv.Itoa(configInfo.Master.ClientPort))
+}
+
+func GetEmptyPort(ip string) (port string, err error) {
+	for p := 1024; p <= 65535; p++ {
+		addr := fmt.Sprintf("%s:%d", ip, p)
+		// Attempt to listen on the port
+		listener, err := net.Listen("tcp", addr)
+		if err == nil {
+			// Port is available, close the listener and return the port
+			_ = listener.Close()
+			return fmt.Sprintf("%d", p), nil
+		}
+	}
+	return "", fmt.Errorf("no available ports found on %s", ip)
 }
