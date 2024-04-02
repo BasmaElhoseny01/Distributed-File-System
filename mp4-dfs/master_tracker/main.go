@@ -212,6 +212,10 @@ func (s *masterServer) ConfirmCopy(ctx context.Context, in*replicate.ConfirmCopy
 	}
 	fmt.Printf("Received Ack For file %s from Node %s\n", file_name,Node_id)
 
+	// Remove Node from Replicating list
+	s.files_lookup_table.RemoveReplicatingNode(file_name,Node_id)
+	fmt.Printf("Removed Node %s from Replicating List of File %s\n", Node_id,file_name)
+
  	return &replicate.ConfirmCopyResponse{Status: "OK"},nil
 }
 
@@ -368,8 +372,13 @@ func checkReplication(master *masterServer) {
 					}
 	
 					fmt.Printf("Connected To Dst %s\n", dstAddress)
+
+					// Add New Node to the replicating list
+					master.files_lookup_table.AddReplicatingNode(file,dstId)
+					fmt.Printf("Added Node %s to Replicating List of File %s\n", dstId,file)
+
 	
-					//2. Register as Client to Service replicate File offered by the datanode
+					//2. Register as Client to Service replicate File offered by the data node
 					replicateClient := replicate.NewReplicateServiceClient(connToDst)
 	
 					//3- sending request

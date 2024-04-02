@@ -35,6 +35,9 @@ type File struct {
 	replica_node_3 string
 
 	confirmed bool
+	replicating_nodes map[string]time.Time // Map with string keys and time.Time values
+	
+	// REMOVE
 	status  FileStatus
 	status_last_modified_timestamp time.Time
 }
@@ -44,10 +47,13 @@ func NewFile(file_name string, data_node_1 string,path_1 string) File {
 		file_name:    file_name,
 
 		data_node_1:  data_node_1,
-		replica_node_2: "-1",  //[FIX]
-		replica_node_3: "-1", //[FIX]
+		replica_node_2: "",
+		replica_node_3: "",
 
 		confirmed:false,
+		replicating_nodes: make(map[string]time.Time), // Initialize the map
+
+		// REMOVE
 		status:None,
 		status_last_modified_timestamp:time.Now(),
 	}
@@ -193,11 +199,22 @@ func(store *FileLookUpTable) CheckUnReplicatedFiles()([]string){
 
 	nonReplicatedFiles := make([]string, 0)
 
+	count_non_replica:=0
+	
 	for _, file := range store.data {
 		// [TODO] Fix IDLE Nodes
-		if (file.replica_node_2 =="-1" ||  file.replica_node_3=="-1") && file.status!=Replicating {
+		if (file.replica_node_2 ==""){
+			count_non_replica+=1
+		}
+		if (file.replica_node_3=="") {
+			count_non_replica+=1
+		}
+
+		// Check if already Replicating
+		if count_non_replica> len(store.data[file.file_name].replicating_nodes){
 			nonReplicatedFiles = append(nonReplicatedFiles, file.file_name)
 		}
+		
 	}
 	return nonReplicatedFiles
 }
@@ -214,15 +231,15 @@ func(store *FileLookUpTable) GetFileSourceMachines(fileName string)([]string){
 	file:=store.data[fileName]
 	//TODO:fix IDILE
 
-	if file.data_node_1 !="-1"{
+	if file.data_node_1 !=""{
 		sourceMachines=append(sourceMachines,file.data_node_1)
 	}
 
-	if file.replica_node_2 !="-1"{
+	if file.replica_node_2 !=""{
 		sourceMachines=append(sourceMachines,file.replica_node_2)
 	}
 
-	if file.replica_node_3 !="-1"{
+	if file.replica_node_3 !=""{
 		sourceMachines=append(sourceMachines,file.replica_node_3)
 	}
 	return sourceMachines
@@ -237,16 +254,38 @@ func(store *FileLookUpTable) ResetFilesIdleStatus()([] string){
 	reset_files:= make([]string, 0)
 
 
-	for _, file := range store.data {
-		// [TODO] Fix IDLE Nodes
-		if file.status==Replicating || file.status==Confirming {
-			if  time.Since(file.status_last_modified_timestamp).Seconds()>20{
-				// Set Back to None
-				store.SetFileStateToNone(file.file_name)
+	// for _, file := range store.data {
+	// 	// [TODO] Fix IDLE Nodes
+	// 	if file.status==Replicating || file.status==Confirming {
+	// 		if  time.Since(file.status_last_modified_timestamp).Seconds()>20{
+	// 			// Set Back to None
+	// 			store.SetFileStateToNone(file.file_name)
 
-				reset_files=append(reset_files, file.file_name)
-			}
+	// 			reset_files=append(reset_files, file.file_name)
+	// 		}
+	// 	}
+	// }
+	return reset_files
+}
+
+
+func (store *FileLookUpTable) AddReplicatingNode(file_name string,node_id string) (error){
+	// Add the node_id to the replicating_nodes map with a default timestamp
+    store.data[file_name].replicating_nodes[node_id] = time.Now()
+      
+	 return nil
+	
+}
+
+func (store *FileLookUpTable) RemoveReplicatingNode(file_name string,node_id string){
+	// Iterate over the map to find and remove the element with the specified node_id
+	for key := range store.data[file_name].replicating_nodes {
+		if key == node_id {
+			// Remove the element with the matching node_id from the replicating_nodes map
+			delete(store.data[file_name].replicating_nodes, key)
+
+			// Assuming node_id is unique, break the loop after the removal
+			break
 		}
 	}
-	return reset_files
 }
