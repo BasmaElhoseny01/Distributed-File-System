@@ -206,7 +206,7 @@ func (s *masterServer) AlivePing(ctx context.Context, in *hb.AlivePingRequest) (
 func (s *masterServer) ConfirmCopy(ctx context.Context, in*replicate.ConfirmCopyRequest)(*replicate.ConfirmCopyResponse,error){
 	file_name:=in.FileName
 	Node_id:=in.NodeId
-	err:=s.files_lookup_table.ReplicateFile(file_name,Node_id)
+	err:=s.files_lookup_table.ReplicateFile(file_name,Node_id,s.data_node_lookup_table.IsNodeAlive)
 	if err!=nil{
 		fmt.Println("Failed to update look table", err)
 	}
@@ -347,59 +347,52 @@ func checkReplication(master *masterServer) {
 			master.files_lookup_table.SetFileStateToReplicating(file)
 
 			// Get Source Machines
-			sourceMachines := master.files_lookup_table.GetFileSourceMachines(file)
+			sourceMachines := master.files_lookup_table.GetFileSourceMachines(file,master.data_node_lookup_table.IsNodeAlive)
 			// First Source Machine
 			srcId:=sourceMachines[0]
 			srcIP,srcPort,_:=master.data_node_lookup_table.GetNodeReplicationServiceAddress(srcId)
 			srcAddress:=srcIP+":"+srcPort
 
-			// replica_count:=len(sourceMachines)
-			// for{
-			// 	if replica_count==3{
-			// 		break
-			// 	}
-				// Get Destination Machines
-				dstId,_ := master.data_node_lookup_table.GetCopyDestination(sourceMachines)
-				if dstId !=""{
-					// 1.Send Dst IP to Src
-					// Append
-					dstIP,dstPort,_:=master.data_node_lookup_table.GetNodeReplicationServiceAddress(dstId)
-					dstAddress:=dstIP+":"+dstPort
-					connToDst, err := grpc.Dial(dstAddress, grpc.WithInsecure())
-					if err != nil {
-						fmt.Println(err)
-						fmt.Printf("Can not connect to Dst at %s, Error %s\n", dstAddress,err)
-					}
-	
-					fmt.Printf("Connected To Dst %s\n", dstAddress)
-
-					// Add New Node to the replicating list
-					master.files_lookup_table.AddReplicatingNode(file,dstId)
-					fmt.Printf("Added Node %s to Replicating List of File %s\n", dstId,file)
-
-	
-					//2. Register as Client to Service replicate File offered by the data node
-					replicateClient := replicate.NewReplicateServiceClient(connToDst)
-	
-					//3- sending request
-					fmt.Printf("Sending copy request to data node\n")
-					_ ,err=replicateClient.NotifyToCopy(context.Background(),&replicate.NotifyToCopyRequest{
-						FileName: file,
-						SrcAddress: srcAddress,
-					})
-					if err!=nil{
-						fmt.Println("Failed to Notify Dst Node for Replication", err)
-					}
-					connToDst.Close()
-		
-				}else{
-					// Set Status Back To None
-					master.files_lookup_table.SetFileStateToNone(file)
-					println("No available Data Nodes to replicate the file.")
+			// Get Destination Machines
+			dstId,_ := master.data_node_lookup_table.GetCopyDestination(sourceMachines)
+			if dstId !=""{
+				// 1.Send Dst IP to Src
+				// Append
+				dstIP,dstPort,_:=master.data_node_lookup_table.GetNodeReplicationServiceAddress(dstId)
+				dstAddress:=dstIP+":"+dstPort
+				connToDst, err := grpc.Dial(dstAddress, grpc.WithInsecure())
+				if err != nil {
+					fmt.Println(err)
+					fmt.Printf("Can not connect to Dst at %s, Error %s\n", dstAddress,err)
 				}
+
+				fmt.Printf("Connected To Dst %s\n", dstAddress)
+
+				// Add New Node to the replicating list
+				master.files_lookup_table.AddReplicatingNode(file,dstId)
+				fmt.Printf("Added Node %s to Replicating List of File %s\n", dstId,file)
+
+
+				//2. Register as Client to Service replicate File offered by the data node
+				replicateClient := replicate.NewReplicateServiceClient(connToDst)
+
+				//3- sending request
+				fmt.Printf("Sending copy request to data node\n")
+				_ ,err=replicateClient.NotifyToCopy(context.Background(),&replicate.NotifyToCopyRequest{
+					FileName: file,
+					SrcAddress: srcAddress,
+				})
+				if err!=nil{
+					fmt.Println("Failed to Notify Dst Node for Replication", err)
+				}
+				connToDst.Close()
 	
+			}else{
+				// Set Status Back To None
+				master.files_lookup_table.SetFileStateToNone(file)
+				println("No available Data Nodes to replicate the file.")
+			}
 						
-				// 3. Check For Replicas
 		}
 		
 		// [FIX] Sleep for 10 seconds before the next check
@@ -526,10 +519,10 @@ func main() {
 		defer wg.Done()
 		checkReplication(&master)
 	}()
-	go func(){
-		defer wg.Done()
-		ResetFileStatus(&master)
-	}()
+	// go func(){
+	// 	defer wg.Done()
+	// 	ResetFileStatus(&master)
+	// }()
 
 	// wait for all goroutines to finish
 	wg.Wait()

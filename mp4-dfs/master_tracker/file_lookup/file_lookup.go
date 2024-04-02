@@ -98,15 +98,15 @@ func (store *FileLookUpTable)AddFile(mp4file *File) (error){
 	}
 	return nil
 }
-func (store *FileLookUpTable)ReplicateFile(file_name string ,node_id string)(error){
+func (store *FileLookUpTable)ReplicateFile(file_name string ,node_id string,IsNodeAlive func(string) (bool))(error){
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
 
-	if(store.data[file_name].data_node_1==""){
+	if(store.data[file_name].data_node_1=="" || !IsNodeAlive(store.data[file_name].data_node_1)){
 		store.data[file_name].data_node_1=node_id
-	}else if(store.data[file_name].replica_node_2==""){
+	}else if(store.data[file_name].replica_node_2=="" || !IsNodeAlive(store.data[file_name].replica_node_2)){
 		store.data[file_name].replica_node_2=node_id
-	}else if(store.data[file_name].replica_node_3==""){
+	}else if(store.data[file_name].replica_node_3=="" || !IsNodeAlive(store.data[file_name].replica_node_3)){
 		store.data[file_name].replica_node_3=node_id
 	}
 	 return nil
@@ -224,7 +224,7 @@ func(store *FileLookUpTable) CheckUnReplicatedFiles(IsNodeAlive func(string) (bo
 
 
 //Get Source Machines
-func(store *FileLookUpTable) GetFileSourceMachines(fileName string)([]string){
+func(store *FileLookUpTable) GetFileSourceMachines(fileName string,IsNodeAlive func(string) (bool))([]string){
 	// get all possible Source Machine for the file
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
@@ -234,15 +234,15 @@ func(store *FileLookUpTable) GetFileSourceMachines(fileName string)([]string){
 	file:=store.data[fileName]
 	//TODO:fix IDILE
 
-	if file.data_node_1 !=""{
+	if (file.data_node_1 !="" && IsNodeAlive(file.data_node_1)){
 		sourceMachines=append(sourceMachines,file.data_node_1)
 	}
 
-	if file.replica_node_2 !=""{
+	if (file.replica_node_2 !="" && IsNodeAlive(file.replica_node_2)){
 		sourceMachines=append(sourceMachines,file.replica_node_2)
 	}
 
-	if file.replica_node_3 !=""{
+	if (file.replica_node_3 !=""&& IsNodeAlive(file.replica_node_3)){
 		sourceMachines=append(sourceMachines,file.replica_node_3)
 	}
 	return sourceMachines
