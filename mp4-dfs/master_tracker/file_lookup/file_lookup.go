@@ -6,27 +6,6 @@ import (
 	"time"
 )
 
-// Enum for the file Status
-type FileStatus int
-const (
-    None FileStatus = iota
-    Confirming
-    Replicating
-    // Add more status values as needed
-)
-func (fs FileStatus) String() string {
-    switch fs {
-    case None:
-        return "None"
-    case Confirming:
-        return "Confirming"
-    case Replicating:
-        return "Replicating"
-    default:
-        return "Unknown"
-    }
-}
-
 type File struct {
 	// Define fields as needed
 	file_name      string
@@ -35,11 +14,11 @@ type File struct {
 	replica_node_3 string
 
 	confirmed bool
-	replicating_nodes map[string]time.Time // Map with string keys and time.Time values
 	
-	// REMOVE
-	status  FileStatus
-	status_last_modified_timestamp time.Time
+	// State Management
+	replicating_nodes map[string]time.Time // Map with string keys and time.Time values
+	confirming bool
+	confirming_timestamp time.Time
 }
 
 func NewFile(file_name string, data_node_1 string,path_1 string) File {
@@ -51,11 +30,11 @@ func NewFile(file_name string, data_node_1 string,path_1 string) File {
 		replica_node_3: "",
 
 		confirmed:false,
-		replicating_nodes: make(map[string]time.Time), // Initialize the map
 
-		// REMOVE
-		status:None,
-		status_last_modified_timestamp:time.Now(),
+		replicating_nodes: make(map[string]time.Time), // Initialize the map
+		confirming: false,
+		confirming_timestamp: time.Now(),
+
 	}
 }
 
@@ -117,8 +96,8 @@ func (store *FileLookUpTable)ReplicateFile(file_name string ,node_id string,IsNo
 func (store *FileLookUpTable) PrintFileInfo(fileName string )(string){
 	file:=store.data[fileName]
 
-	details := fmt.Sprintf("[File] Name: %s,confirmed : %t,at node [%s] ,at node [%s] ,at node [%s], Status:[%s], Status Last Modified: [%s]",
-	file.file_name,file.confirmed, file.data_node_1,file.replica_node_2,file.replica_node_3,file.status.String(),file.status_last_modified_timestamp.Format(time.RFC3339))
+	details := fmt.Sprintf("[File] Name: %s,confirmed : %t,at node [%s] ,at node [%s] ,at node [%s]",
+	file.file_name,file.confirmed, file.data_node_1,file.replica_node_2,file.replica_node_3)
 	return details
 }
 
@@ -130,42 +109,6 @@ func(store *FileLookUpTable) ConfirmFile(fileName string)(){
 	return
 }
 
-
-//Set File Operation Sate to None
-func(store *FileLookUpTable) SetFileStateToNone(fileName string)(){
-	store.mutex.Lock()
-	defer store.mutex.Unlock()
-	store.data[fileName].status=None
-
-	// Update Timestamp for last status modification
-	store.data[fileName].status_last_modified_timestamp=time.Now()
-
-	return
-}
-
-//Set File Operation Sate to Confirming
-func(store *FileLookUpTable) SetFileStateToConfirming(fileName string)(){
-	store.mutex.Lock()
-	defer store.mutex.Unlock()
-	store.data[fileName].status=Confirming
-
-	// Update Timestamp for last status modification
-	store.data[fileName].status_last_modified_timestamp=time.Now()
-
-	return
-}
-
-//Set File Operation Sate to Replicating
-func(store *FileLookUpTable) SetFileStateToReplicating(fileName string)(){
-	store.mutex.Lock()
-	defer store.mutex.Unlock()
-	store.data[fileName].status=Replicating
-
-	// Update Timestamp for last status modification
-	store.data[fileName].status_last_modified_timestamp=time.Now()
-
-	return
-}
 
 //Remove File
 func(store *FileLookUpTable) RemoveFile(fileName string)(){
@@ -184,7 +127,8 @@ func(store *FileLookUpTable) CheckUnConfirmedFiles()([]string){
 	nonConfirmedFiles := make([]string, 0)
 
 	for _, file := range store.data {
-		if !file.confirmed && file.status!=Confirming {
+		// File is unconfirmed and not being confirmed now :D
+		if !file.confirmed && !file.confirming {
 			nonConfirmedFiles = append(nonConfirmedFiles, file.file_name)
 		}
 	}
@@ -223,7 +167,7 @@ func(store *FileLookUpTable) CheckUnReplicatedFiles(IsNodeAlive func(string) (bo
 }
 
 
-//Get Source Machines
+//Get Replication Source Machines
 func(store *FileLookUpTable) GetFileSourceMachines(fileName string,IsNodeAlive func(string) (bool))([]string){
 	// get all possible Source Machine for the file
 	store.mutex.Lock()
@@ -232,8 +176,8 @@ func(store *FileLookUpTable) GetFileSourceMachines(fileName string,IsNodeAlive f
 	sourceMachines := make([]string, 0)
 
 	file:=store.data[fileName]
-	//TODO:fix IDILE
 
+	// Checking Non replicated Nodes + Idle Nodes
 	if (file.data_node_1 !="" && IsNodeAlive(file.data_node_1)){
 		sourceMachines=append(sourceMachines,file.data_node_1)
 	}
@@ -248,36 +192,29 @@ func(store *FileLookUpTable) GetFileSourceMachines(fileName string,IsNodeAlive f
 	return sourceMachines
 }
 
-
-//Get IdleFiles Files
-func(store *FileLookUpTable) ResetFilesIdleStatus()([] string){
+func (store *FileLookUpTable) SetConfirming(file_name string) (error){
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
-
-	reset_files:= make([]string, 0)
-
-
-	// for _, file := range store.data {
-	// 	// [TODO] Fix IDLE Nodes
-	// 	if file.status==Replicating || file.status==Confirming {
-	// 		if  time.Since(file.status_last_modified_timestamp).Seconds()>20{
-	// 			// Set Back to None
-	// 			store.SetFileStateToNone(file.file_name)
-
-	// 			reset_files=append(reset_files, file.file_name)
-	// 		}
-	// 	}
-	// }
-	return reset_files
+	
+	// Add the node_id to the replicating_nodes map with a default timestamp
+    store.data[file_name].confirming = true
+	store.data[file_name].confirming_timestamp = time.Now()
+	return nil
 }
 
+func (store *FileLookUpTable) UnSetConfirming(file_name string) (error){
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+	
+	// Add the node_id to the replicating_nodes map with a default timestamp
+    store.data[file_name].confirming = false
+	return nil
+}
 
 func (store *FileLookUpTable) AddReplicatingNode(file_name string,node_id string) (error){
 	// Add the node_id to the replicating_nodes map with a default timestamp
     store.data[file_name].replicating_nodes[node_id] = time.Now()
-      
-	 return nil
-	
+	return nil
 }
 
 func (store *FileLookUpTable) RemoveReplicatingNode(file_name string,node_id string){
@@ -297,6 +234,14 @@ func (store *FileLookUpTable) RemoveReplicatingNode(file_name string,node_id str
 func (store *FileLookUpTable) ResetIdleFiles(max float64){
 	// Iterate over the map to find and Idle Files
 	for _, file := range store.data {
+		
+		// Idle While Confirming
+		if time.Since(file.confirming_timestamp).Seconds()>max{
+			// Break Confirming
+			store.UnSetConfirming(file.file_name)
+			fmt.Printf("[Break Confirmation] File %s\n",file.file_name)
+		}
+
 		// Idle While Replicating
 		for key := range file.replicating_nodes {
 			last_time_stamp:=file.replicating_nodes[key]
@@ -304,9 +249,8 @@ func (store *FileLookUpTable) ResetIdleFiles(max float64){
 			if time.Since(last_time_stamp).Seconds()>max{
 				// Break Replicating 
 				delete(file.replicating_nodes, key)
-				fmt.Printf("[Broke Replication] File %s By Node %s\n",file.file_name,key)
+				fmt.Printf("[Break Replication] File %s By Node %s\n",file.file_name,key)
 			}
 		}
-		// Idle While Confirming
 	}
 }

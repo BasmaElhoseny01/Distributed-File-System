@@ -321,13 +321,11 @@ func checkUnConfirmedFiles(master *masterServer){
 		println(unconfirmedFiles)
 		for _, file := range unconfirmedFiles{
 			// Set State for this File to be Confirming
-			// [TODO] Handle case of not confirmed must set the status flag back to None
-			master.files_lookup_table.SetFileStateToConfirming(file)
+			master.files_lookup_table.SetConfirming(file)
 
 			// Send Confirmation To Client
 			master.sendClientConfirm(file)
 		}
-
 		// Sleep for 5 seconds before the next check
 		time.Sleep(5 * time.Second)
 	}
@@ -342,10 +340,6 @@ func checkReplication(master *masterServer) {
 		// Getting non replicated files
 		files := master.files_lookup_table.CheckUnReplicatedFiles(master.data_node_lookup_table.IsNodeAlive)
 		for _, file := range files {
-			// Set State for this File to be Replicating
-			// [TODO] Handle case of not confirmed must set the status flag back to None
-			master.files_lookup_table.SetFileStateToReplicating(file)
-
 			// Get Source Machines
 			sourceMachines := master.files_lookup_table.GetFileSourceMachines(file,master.data_node_lookup_table.IsNodeAlive)
 			// First Source Machine
@@ -388,8 +382,6 @@ func checkReplication(master *masterServer) {
 				connToDst.Close()
 	
 			}else{
-				// Set Status Back To None
-				master.files_lookup_table.SetFileStateToNone(file)
 				println("No available Data Nodes to replicate the file.")
 			}
 						
@@ -421,13 +413,13 @@ func ResetIdleFiles(master *masterServer) {
 }
 // ###################################################### Utils ##########################################################
 func (s *masterServer) sendClientConfirm(fileName string){
-	// Set File Status Back To None
-	defer s.files_lookup_table.SetFileStateToNone(fileName)
+	// Set Confirming flag back to be false
+	defer s.files_lookup_table.UnSetConfirming(fileName)
 
 	// Send Notification to Client
 	// GetSocket for the Client 
 	client_socket:=s.client_lookup_table.GetClientSocket(fileName)
-	//1. Establish Connection to the Master
+	//1. Establish Connection to the Client
 	connToClient, err := grpc.Dial(client_socket, grpc.WithInsecure())
 	if err != nil {
 		fmt.Printf("Can not connect to Client at %s error: %v \n", client_socket,err)
@@ -460,10 +452,8 @@ func (s *masterServer) sendClientConfirm(fileName string){
 	if response_status=="time_out"{
 		// Checked this Mechanism and found best way to handle timed_out is to keep the file.
 		fmt.Printf("File %s Confirmation is TimedOut So We Only Remove Client From Table But The File is Kept\n",fileName)
-		//Remove File
-		// s.files_lookup_table.RemoveFile(fileName)
 
-		//[TODO Extra Send Request to DataNode to Remove the FIle Uploaded]
+		// The Confirming of that file is set back to false :D
 
 		// Remove Client
 		s.client_lookup_table.RemoveClient(fileName)

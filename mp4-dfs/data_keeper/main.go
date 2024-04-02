@@ -469,19 +469,48 @@ func GetNodeSockets() (node_ip string, file_service_port_no string ,replication_
 
 	// Parse flags
 	flag.Parse()
-	
+
+	if breakFlag{
+		// Remove the element at index 2
+		os.Args = append(os.Args[:1], os.Args[2:]...)
+	}
+
 	// [Fix] Args List 
 	// Take The port Nos from Command Line
 
+	if(len(os.Args)<=1){
+		// go run ./data_keeper/main.go --> MyIP + Empty Port [Done]
+
+		// Get IP address using GetMyIP function if not provided in arguments
+		ip := utils.GetMyIp()
+		if ip == nil {
+			fmt.Println("Failed to retrieve IP address.")
+			os.Exit(1)
+		}
+
+		//No ports are passed then get empty one
+		file_service_port,err:=utils.GetEmptyPort(ip.String(),"-1")
+		if err!=nil{
+			fmt.Printf("Error When Getting Empty Port for the file_service_port Error:%v",err)
+			os.Exit(1)
+		}
+
+		//No ports are passed then get empty one
+		replication_service_port,err:=utils.GetEmptyPort(ip.String(),file_service_port)
+		if err!=nil{
+			fmt.Printf("Error When Getting Empty Port for the replication_service_port Error:%v",err)
+			os.Exit(1)
+		}
+
+		return ip.String(),file_service_port,replication_service_port,breakFlag
+	}
+
+
 	// Check if enough arguments are provided
-	  if len(os.Args) < 2 || len(os.Args) > 5 {
-		
-        fmt.Println("Usage: data_node [-break] [<your_ip>] <file_service_port> <replication_service_port>")
+	  if len(os.Args) > 5 {
+        fmt.Println("Usage: data_node [-break] [<your_ip>] [<file_service_port>] [<replication_service_port>]")
         os.Exit(1)
     }
-
-	// Set break flag
-	breakEnabled = breakFlag
 
 	// If the first argument is an IP address, parse it
     ip := net.ParseIP(os.Args[1])
@@ -491,6 +520,8 @@ func GetNodeSockets() (node_ip string, file_service_port_no string ,replication_
 			ip=ipAddr.IP
 		}
 	}
+
+	// [IP]
     if ip != nil {
         // If the first argument is an IP address, shift arguments to the right
         os.Args = append(os.Args[:1], os.Args[2:]...)
@@ -503,36 +534,57 @@ func GetNodeSockets() (node_ip string, file_service_port_no string ,replication_
         }
 	}
 
-	
-    // // Parse client port
-    file_service_port, err := strconv.Atoi(os.Args[len(os.Args)-2])
-    if err != nil || file_service_port <= 0 || file_service_port > 65535 {
-        fmt.Println("Invalid file service port:", os.Args[len(os.Args)-2])
-        os.Exit(1)
-    }
+	// [PORT]
+	if len(os.Args)>2{
+		// Then a ports are passed
+		// Parse client port
+		file_service_port, err := strconv.Atoi(os.Args[len(os.Args)-2])
+		if err != nil || file_service_port <= 0 || file_service_port > 65535 {
+			fmt.Println("Invalid file service port:", os.Args[len(os.Args)-2])
+			os.Exit(1)
+		}
+
+		// Check if client port is reachable
+		if !utils.IsPortOpen(ip.String(), file_service_port) {
+			fmt.Printf("File service port %d is not reachable\n", file_service_port)
+			os.Exit(1)
+		}
+		file_service_port_no=strconv.Itoa(file_service_port)
 
 
-    // Parse node port
-    replication_service_port, err := strconv.Atoi(os.Args[len(os.Args)-1])
-    if err != nil || replication_service_port <= 0 || replication_service_port > 65535 {
-        fmt.Println("Invalid replication service port:", os.Args[len(os.Args)-1])
-        os.Exit(1)
-    }
+		// Parse node port
+		replication_service_port, err := strconv.Atoi(os.Args[len(os.Args)-1])
+		if err != nil || replication_service_port <= 0 || replication_service_port > 65535 {
+			fmt.Println("Invalid replication service port:", os.Args[len(os.Args)-1])
+			os.Exit(1)
+		}
 
+		// Check if node port is reachable
+		if !utils.IsPortOpen(ip.String(), replication_service_port) {
+		fmt.Printf("Replication service port %d is not reachable\n", replication_service_port)
+		os.Exit(1)
+		}
+		replication_service_port_no=strconv.Itoa(replication_service_port)
+	}else{
+		//No ports are passed then get empty one
+		file_service_port,err:=utils.GetEmptyPort(ip.String(),"-1")
+		if err!=nil{
+			fmt.Printf("Error When Getting Empty Port for the file_service_port Error:%v",err)
+			os.Exit(1)
+		}
+		file_service_port_no=file_service_port
 
-	// Check if client port is reachable
-	  if !utils.IsPortOpen(ip.String(), file_service_port) {
-        fmt.Printf("File service port %d is not reachable\n", file_service_port)
-        os.Exit(1)
-    }
+		//No ports are passed then get empty one
+		replication_service_port,err:=utils.GetEmptyPort(ip.String(),file_service_port)
+		if err!=nil{
+			fmt.Printf("Error When Getting Empty Port for the replication_service_port Error:%v",err)
+			os.Exit(1)
+		}
+		replication_service_port_no=replication_service_port
 
-    // Check if node port is reachable
-    if !utils.IsPortOpen(ip.String(), replication_service_port) {
-        fmt.Printf("Replication service port %d is not reachable\n", replication_service_port)
-        os.Exit(1)
-    }
+	}
 
-	return ip.String(),strconv.Itoa(file_service_port),strconv.Itoa(replication_service_port),breakEnabled
+	return ip.String(),file_service_port_no,replication_service_port_no,breakFlag
 }
 
 var break_node bool=false
@@ -601,4 +653,14 @@ func main() {
 }
 
 
-// go run .\data_keeper\main.go 127.0.0.1 8080 8085
+// go run .\data_keeper\main.go --> MyIp + Empty Port + Empty Port  [Handled]
+// go run .\data_keeper\main.go 127.0.0.1 8080 8085 [Handled]
+// go run .\data_keeper\main.go 8080 8085 [Handled]
+// go run .\data_keeper\main.go 127.0.0.1 [Handled]
+
+
+
+// go run .\data_keeper\main.go -break --> MyIp + Empty Port + Empty Port
+// go run .\data_keeper\main.go -break 127.0.0.1 9040 9806
+// go run .\data_keeper\main.go -break 8080 8085
+// go run .\data_keeper\main.go -break 127.0.0.1 [Handled]
