@@ -74,8 +74,9 @@ func (s *masterServer) RequestUpload (ctx context.Context, in *upload.RequestUpl
 
 	// check if file already exist	
 	if  exists :=s.files_lookup_table.CheckFileExists(file_name); exists {
-		fmt.Printf("file %s already exists\n",file_name)
-		return  &upload.RequestUploadResponse{},errors.New("")
+		errorMsg := fmt.Sprintf("File %s already exists", file_name)
+		fmt.Println(errorMsg)
+		return &upload.RequestUploadResponse{}, errors.New(errorMsg)
     }
 
 	// Get the data node with the least load
