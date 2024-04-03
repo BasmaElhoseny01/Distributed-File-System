@@ -21,20 +21,19 @@ import (
 	utils "mp4-dfs/utils"
 )
 
-type clientNode struct{
+type clientNode struct {
 	upload.UnimplementedUploadServiceServer
 	socket string
 }
 
-func newClientNode(socket_no string) clientNode{
+func newClientNode(socket_no string) clientNode {
 	return clientNode{
-		socket:socket_no,
+		socket: socket_no,
 	}
 }
 
-
-var confirmationReceived bool // Shared variable to track confirmation status
-var fileReceived string // Shared variable to track confirmation status
+var confirmationReceived bool    // Shared variable to track confirmation status
+var fileReceived string          // Shared variable to track confirmation status
 var confirmationMutex sync.Mutex // Mutex for concurrent access to the confirmation status
 
 // ############################################# Rpcs #################################################################
@@ -42,23 +41,22 @@ var confirmationMutex sync.Mutex // Mutex for concurrent access to the confirmat
 func (c *clientNode) ConfirmUpload(ctx context.Context, in *upload.ConfirmUploadRequest) (*upload.ConfirmUploadResponse, error) {
 	confirmationMutex.Lock()
 	defer confirmationMutex.Unlock()
-	if fileReceived == ""{
-		return &upload.ConfirmUploadResponse{Status: "time_out"},nil
+	if fileReceived == "" {
+		return &upload.ConfirmUploadResponse{Status: "time_out"}, nil
 	}
 
 	confirmationReceived = true
-	fileName:=in.GetFileName()
-	if fileName!=fileReceived{
-		return &upload.ConfirmUploadResponse{Status: "wrong_file"},nil
+	fileName := in.GetFileName()
+	if fileName != fileReceived {
+		return &upload.ConfirmUploadResponse{Status: "wrong_file"}, nil
 	}
-	
-	fmt.Printf("Master Confirmed File %s being uploaded successfully\n",fileName)
-	return &upload.ConfirmUploadResponse{Status: "success"},nil
+
+	fmt.Printf("Master Confirmed File %s being uploaded successfully\n", fileName)
+	return &upload.ConfirmUploadResponse{Status: "success"}, nil
 }
 
-
-//  ######################################################## GO Routines ######################################################
-func handleUploadFile(path string,socket string) error{
+// ######################################################## GO Routines ######################################################
+func handleUploadFile(path string, socket string) error {
 
 	// Check if the file exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -81,23 +79,21 @@ func handleUploadFile(path string,socket string) error{
 	//2. Register as Client to Service Upload File offered by the Master
 	uploadClient := upload.NewUploadServiceClient(connToMaster)
 
-
 	// 3. Upload File Request
 	fmt.Print("Sending Upload Request To Master ....\n")
-	response, err:=uploadClient.RequestUpload(context.Background(),&upload.RequestUploadRequest{
-		FileName: filename,
-		ClientSocket: socket, 
+	response, err := uploadClient.RequestUpload(context.Background(), &upload.RequestUploadRequest{
+		FileName:     filename,
+		ClientSocket: socket,
 	})
-	if err!=nil{
+	if err != nil {
 		fmt.Println("Failed to request port from Master", err)
 		return err
 	}
 
-	nodeSocket:=response.GetNodeSocket()
+	nodeSocket := response.GetNodeSocket()
 	//Close Connection with Master
 	connToMaster.Close()
 	fmt.Printf("Sending File to %s ...\n", nodeSocket)
-
 
 	//4. Transfer File
 	//Establish Connection to Data Node
@@ -106,18 +102,18 @@ func handleUploadFile(path string,socket string) error{
 		fmt.Printf("Could not Connect to DataNode at [%s]\n", nodeSocket)
 		return err
 	}
-	defer connToDataNode.Close()
 
 	// Register To File Transfer Service to Data Node
-	uploadClient=upload.NewUploadServiceClient(connToDataNode)
+	uploadClient = upload.NewUploadServiceClient(connToDataNode)
 
 	// Send File MetaData + Chunks
-	sendFile(path,uploadClient)
+	sendFile(path, uploadClient)
+	//Close Connection With Data Node
+	connToDataNode.Close()
 	return nil
 }
 
-
-func handleDownloadFile(servers_data []*download.Server, filename string){
+func handleDownloadFile(servers_data []*download.Server, filename string) {
 	// 1. Establish Connection to data node
 	if len(servers_data) == 1 {
 		fmt.Println("Only 1 server available")
@@ -177,13 +173,13 @@ func handleDownloadFile(servers_data []*download.Server, filename string){
 
 // ############################################################ Utils ############################################################
 // Send File
-func sendFile(path string,uploadClient upload.UploadServiceClient){
+func sendFile(path string, uploadClient upload.UploadServiceClient) {
 	fileName := filepath.Base(path)
 
 	//1. Open File
 	file, err := os.Open(path)
 	if err != nil {
-		fmt.Printf("Cannot open Video File at [%s] got error: %v\b", path ,err)
+		fmt.Printf("Cannot open Video File at [%s] got error: %v\b", path, err)
 		return
 	}
 	defer file.Close()
@@ -196,7 +192,7 @@ func sendFile(path string,uploadClient upload.UploadServiceClient){
 	}
 
 	//3. Send MetaData For Video File
-	req:=&upload.UploadFileRequest{
+	req := &upload.UploadFileRequest{
 		Data: &upload.UploadFileRequest_FileInfo{
 			FileInfo: &upload.FileInfo{
 				FileName: fileName,
@@ -226,7 +222,7 @@ func sendFile(path string,uploadClient upload.UploadServiceClient){
 		// fmt.Printf("chunk of size %d n:%d\n", len(buffer[:n]), n)
 
 		// Send New Request to Server with Data Chunk
-		req:=&upload.UploadFileRequest{
+		req := &upload.UploadFileRequest{
 			Data: &upload.UploadFileRequest_ChuckData{
 				ChuckData: buffer[:n],
 			},
@@ -237,12 +233,11 @@ func sendFile(path string,uploadClient upload.UploadServiceClient){
 			return
 		}
 	}
-	
 
 	//Sending EndOfFile
 	fmt.Println("Sending End Of File To DataNode")
-	_,err=stream.CloseAndRecv()
-	if err !=nil{
+	_, err = stream.CloseAndRecv()
+	if err != nil {
 		fmt.Println("Can not receive Upload File Response from DataNode ", err, stream.RecvMsg(nil))
 		return
 	}
@@ -251,7 +246,7 @@ func sendFile(path string,uploadClient upload.UploadServiceClient){
 
 func GetNodeSockets() (node_ip string, port string) {
 
-	if(len(os.Args)<=1){
+	if len(os.Args) <= 1 {
 		// go run ./client/main.go --> MyIP + Empty Port [Done]
 
 		// Get IP address using GetMyIP function if not provided in arguments
@@ -261,50 +256,49 @@ func GetNodeSockets() (node_ip string, port string) {
 			os.Exit(1)
 		}
 		//No ports are passed then get empty one
-		port_no,err:=utils.GetEmptyPort(ip.String(),"-1")
-		if err!=nil{
-			fmt.Printf("Error When Getting Empty Port for the Client Error:%v",err)
+		port_no, err := utils.GetEmptyPort(ip.String(), "-1")
+		if err != nil {
+			fmt.Printf("Error When Getting Empty Port for the Client Error:%v", err)
 			os.Exit(1)
 		}
 
-		return ip.String(),port_no
+		return ip.String(), port_no
 	}
 
-
 	if len(os.Args) > 4 {
-        fmt.Println("Usage: client [<your_ip>] [<port>]")
+		fmt.Println("Usage: client [<your_ip>] [<port>]")
 		os.Exit(1)
-    }
+	}
 
 	// If the first argument is an IP address, parse it
-    ip := net.ParseIP(os.Args[1])
-	if ip == nil{
+	ip := net.ParseIP(os.Args[1])
+	if ip == nil {
 		ipAddr, err := net.ResolveIPAddr("ip", os.Args[1])
-		if err==nil{
-			ip=ipAddr.IP
+		if err == nil {
+			ip = ipAddr.IP
 		}
 	}
 
 	// [IP]
-    if ip != nil {
-        // If the first argument is an IP address, shift arguments to the right
-        os.Args = append(os.Args[:1], os.Args[2:]...)
-    } else {
-        // Get IP address using GetMyIP function if not provided in arguments
-        ip = utils.GetMyIp()
-        if ip == nil {
-            fmt.Println("Failed to retrieve IP address.")
+	if ip != nil {
+		// If the first argument is an IP address, shift arguments to the right
+		os.Args = append(os.Args[:1], os.Args[2:]...)
+	} else {
+		// Get IP address using GetMyIP function if not provided in arguments
+		ip = utils.GetMyIp()
+		if ip == nil {
+			fmt.Println("Failed to retrieve IP address.")
 			os.Exit(1)
-        }
+		}
 	}
 
 	// [PORT]
 	// Parse Port if passed or get Empty One
-	if len(os.Args)>1{
+	if len(os.Args) > 1 {
 		// Then a port is passed
 		// Parse Port
 		p_in, err := strconv.Atoi(os.Args[1])
-		fmt.Println("port",p_in)
+		fmt.Println("port", p_in)
 		if err != nil || p_in <= 0 || p_in > 65535 {
 			fmt.Println("Invalid Port:", os.Args[len(os.Args)-1])
 			os.Exit(1)
@@ -315,19 +309,18 @@ func GetNodeSockets() (node_ip string, port string) {
 			fmt.Printf("Port %d is not reachable\n", p_in)
 			os.Exit(1)
 		}
-		port=strconv.Itoa(p_in)
-	}else{
+		port = strconv.Itoa(p_in)
+	} else {
 		//No ports are passed then get empty one
-		p,err:=utils.GetEmptyPort(ip.String(),"-1")
-		if err!=nil{
-			fmt.Printf("Error When Getting Empty Port for the Client Error:%v",err)
+		p, err := utils.GetEmptyPort(ip.String(), "-1")
+		if err != nil {
+			fmt.Printf("Error When Getting Empty Port for the Client Error:%v", err)
 			os.Exit(1)
 		}
-		port=p
+		port = p
 	}
 
-
-	return ip.String(),port
+	return ip.String(), port
 }
 
 // var break_client bool
@@ -335,23 +328,22 @@ func GetNodeSockets() (node_ip string, port string) {
 func main() {
 	fmt.Println("Welcome Client 😊")
 	// 1. Get Ip & Ports
-	ip,port:=GetNodeSockets()
+	ip, port := GetNodeSockets()
 	// ip:="127.0.0.1"
 	// port := "12874"
 
-	client_socket:=ip+":"+port
+	client_socket := ip + ":" + port
 
-	client:=newClientNode(client_socket)
+	client := newClientNode(client_socket)
 
 	master_listener, err := net.Listen("tcp", client_socket)
 	if err != nil {
-		fmt.Printf("Failed to Listen to %s\n",client_socket)
-		
+		fmt.Printf("Failed to Listen to %s\n", client_socket)
+
 	}
 	defer master_listener.Close()
-	fmt.Printf("Listening to Socket: %s\n",client_socket)
+	fmt.Printf("Listening to Socket: %s\n", client_socket)
 
-	
 	s := grpc.NewServer()
 	// client := &clientNode{}
 
@@ -359,12 +351,12 @@ func main() {
 	upload.RegisterUploadServiceServer(s, &client)
 
 	//Serve Calls in a go routine
-	go func ()  {
+	go func() {
 		if err := s.Serve(master_listener); err != nil {
 			fmt.Println(err)
 		}
 	}()
-	
+
 	for {
 		// Transfer type from user
 		// choose 1 for upload and 2 for download
@@ -381,37 +373,37 @@ func main() {
 			fmt.Print("Enter file path: ")
 			var path string
 			fmt.Scanln(&path)
-			fileReceived=filepath.Base(path)
+			fileReceived = filepath.Base(path)
 
 			// Add a variable to track whether confirmation is received
 			confirmationMutex.Lock()
 			confirmationReceived = false
-			confirmationMutex.Unlock() 
+			confirmationMutex.Unlock()
 
 			//Upload File
-			err:=handleUploadFile(path,client_socket)
-			if err!=nil{
+			err := handleUploadFile(path, client_socket)
+			if err != nil {
 				confirmationMutex.Lock()
-				fileReceived=""
+				fileReceived = ""
 				confirmationMutex.Unlock()
 				continue
 			}
 
 			//Wait For Confirm From Master
 			fmt.Println("Waiting for confirmation from server...")
-			attempts_count:=0
-			for{
+			attempts_count := 0
+			for {
 				confirmationMutex.Lock()
 
-				attempts_count+=1
+				attempts_count += 1
 				if confirmationReceived {
 					confirmationMutex.Unlock()
 					fmt.Println("Video Uploaded Successfully 🎆")
 					break
 				}
-				if attempts_count>5{
-				// if attempts_count>2{
-					fileReceived=""
+				if attempts_count > 5 {
+					// if attempts_count>2{
+					fileReceived = ""
 					confirmationMutex.Unlock()
 					fmt.Println("Upload Failed please Try again")
 					break
@@ -421,7 +413,7 @@ func main() {
 				// Sleep for 5 seconds before the next check
 				time.Sleep(5 * time.Second)
 			}
-		
+
 		case 2:
 			fmt.Print("Enter file name: ")
 			var filename string
@@ -459,11 +451,10 @@ func main() {
 				fmt.Println("No servers available")
 				break
 			}
-			
-			
+
 			servers_list := servers.Servers
 			// print servers list
-			fmt.Println("servers list",servers_list)
+			fmt.Println("servers list", servers_list)
 			// close connection to master
 			connToMaster.Close()
 
@@ -472,6 +463,7 @@ func main() {
 		}
 	}
 }
+
 // go run ./client/main.go --> MyIP + Empty Port [Done]
 // go run ./client/main.go 127.0.0.1 --> 127.0.0.1 + Empty Port [Done]
 // go run ./client/main.go 127.0.0.1 8090 --> 127.0.0.1 + 8090 [Done]
