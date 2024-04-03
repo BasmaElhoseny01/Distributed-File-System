@@ -1,8 +1,8 @@
 {
     "master": {
-        "ip": "localhost",
-        "node_port": 5001,
-        "node_ping_port": 5002,
-        "client_port": 5003
+        "ip": "192.168.8.180",
+        "node_port": 8080,
+        "node_ping_port": 8085,
+        "client_port": 8090
     }
 }
