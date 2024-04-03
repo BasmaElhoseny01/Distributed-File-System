@@ -79,6 +79,17 @@ func (store *DataNodeLookUpTable)UpdateNodeTimeStamp(id string) (time.Time,error
 	return store.data[id].ping_timestamp,nil
 }
 
+// Update DataNode 
+func (store *DataNodeLookUpTable)UpdateNodeLoad(id string) (error){
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+
+	store.data[id].load+=1.0
+	
+	return nil
+}
+
+
 // Get Least Loaded DataNode
 func (store *DataNodeLookUpTable)GetLeastLoadedNode() (string,error){
 	store.mutex.RLock()

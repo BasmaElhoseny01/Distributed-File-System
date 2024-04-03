@@ -40,6 +40,7 @@ func (store *FileSystemLookUpTable)AddFile(mp4file *File) (error){
 	for key, value := range store.data {
 		fmt.Printf("[File System] Key: %s, Value: %v\n", key, value)
 	}
+
 	return nil
 }
 

@@ -123,6 +123,9 @@ func (s *masterServer) NotifyMaster (ctx context.Context, in *upload.NotifyMaste
 	fmt.Printf("New File added Successfully\n")
 	fmt.Println(s.files_lookup_table.PrintFileInfo(fileName))
 
+	// Update Load For DataNode
+	s.data_node_lookup_table.UpdateNodeLoad(dataNodeId)
+
 	return &upload.NotifyMasterResponse{}, nil
 }
 
@@ -215,6 +218,10 @@ func (s *masterServer) ConfirmCopy(ctx context.Context, in*replicate.ConfirmCopy
 	// Remove Node from Replicating list
 	s.files_lookup_table.RemoveReplicatingNode(file_name,Node_id)
 	fmt.Printf("Removed Node %s from Replicating List of File %s\n", Node_id,file_name)
+
+	// Update Load for this Node
+	s.data_node_lookup_table.UpdateNodeLoad(Node_id)
+
 
  	return &replicate.ConfirmCopyResponse{Status: "OK"},nil
 }
