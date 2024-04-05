@@ -87,8 +87,8 @@ func (s *masterServer) RequestUpload (ctx context.Context, in *upload.RequestUpl
 	}
 
 	// Get File Service Socket for Node
-	ip,port,err:=s.data_node_lookup_table.GetNodeFileServiceAddress(node_id)
-	if err != nil {
+	ip,port:=s.data_node_lookup_table.GetNodeFileServiceAddress(node_id)
+	if ip == "" {
 		fmt.Printf("Can not Get DataNode [%s] Port %v\n",node_id,err)
 		return  &upload.RequestUploadResponse{},err
 	}
@@ -139,6 +139,13 @@ func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadReque
 	fmt.Println("Received Download Request",file_name)
 	// check if file already exist
 	exists,node_1,node_2,node_3 :=s.files_lookup_table.GetFile(file_name)
+	// print the file info
+	fmt.Printf("------------------------------------------------------------------")
+	fmt.Printf("File %s Exists: %v\n", file_name, exists)
+	fmt.Printf("Data Node 1: %s\n", node_1)
+	fmt.Printf("Data Node 2: %s\n", node_2)
+	fmt.Printf("Data Node 3: %s\n", node_3)
+
 	if !exists {
 		// return error to client in response data
 		return  &download.DownloadServerResponse{Data: &download.DownloadServerResponse_Error{
@@ -153,13 +160,13 @@ func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadReque
 	Port3 := ""
 	// Get the data node with the least load
 	if node_1!= "-1"{
-		Ip1,Port1,_ =s.data_node_lookup_table.GetNodeFileServiceAddress(node_1)
+		Ip1,Port1 =s.data_node_lookup_table.GetNodeFileServiceAddress(node_1)
 	}
 	if node_2!= "-1"{
-		Ip2,Port2,_=s.data_node_lookup_table.GetNodeFileServiceAddress(node_2)
+		Ip2,Port2=s.data_node_lookup_table.GetNodeFileServiceAddress(node_2)
 	}
 	if node_3!= "-1"{
-		Ip3,Port3,_ =s.data_node_lookup_table.GetNodeFileServiceAddress(node_3)
+		Ip3,Port3=s.data_node_lookup_table.GetNodeFileServiceAddress(node_3)
 	}
 	// create list of servers which contains ip and port
 	servers := []*download.Server{
@@ -181,6 +188,12 @@ func (s *masterServer) GetServer(ctx context.Context, in *download.DownloadReque
 			Ip:   Ip3,
 			Port: Port3,
 		})
+	}
+	// if servers is empty return error
+	if len(servers) == 0 {
+		return  &download.DownloadServerResponse{Data: &download.DownloadServerResponse_Error{
+			Error: "No Servers Available",
+		}},nil
 	}
 	// create list of servers
 	servers_list:= &download.ServerList{

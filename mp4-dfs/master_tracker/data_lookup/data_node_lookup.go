@@ -121,18 +121,21 @@ func (store *DataNodeLookUpTable)UpdateNodeStatus(id string,status bool) error{
 }
 
 // get ip and port for replication services of a node
-func (store *DataNodeLookUpTable)GetNodeFileServiceAddress(id string) (string,string,error){
+func (store *DataNodeLookUpTable)GetNodeFileServiceAddress(id string) (string,string){
 	store.mutex.RLock()
 	defer store.mutex.RUnlock()
 	
+	if id==""{
+		return "",""
+	}
 	// check if node alive
 	if !store.data[id].alive {
-		return "","",nil
+		return "",""
 	}
 	Ip:=store.data[id].Ip
 	port:=store.data[id].file_port
 	
-	return Ip,port,nil
+	return Ip,port
 }
 
 // get ip and port for file services of a node

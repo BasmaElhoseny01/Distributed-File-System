@@ -176,6 +176,9 @@ func (s *nodeKeeperServer) UploadFile(stream upload.UploadService_UploadFileServ
 // DownloadFile rpc [server-streaming]
 func (s *nodeKeeperServer) Download(req *download.DownloadRequest, stream download.DownloadService_DownloadServer) error {
 	fileName:=req.GetFileName()
+	offset := req.GetOffset()
+	skip := req.GetSkip()
+	fmt.Printf("Downloading %s .........\n",fileName)
 
 	// Get Path of this file in the node system
 	filePath:=s.file_system_lookup_table.GetFilePath(fileName)
@@ -190,6 +193,13 @@ func (s *nodeKeeperServer) Download(req *download.DownloadRequest, stream downlo
 
 	// Read File
 	chunk := make([]byte, 1024*1024) // 1MB
+	// Skip Offset where offset is the id and bytes to skip is offset*1024*1024
+	_, err = file.Seek(int64(offset*1024*1024), 0)
+	if err != nil {
+		fmt.Println("Cannot seek file",err)
+		return err
+	}
+	id := offset
 	for {
 		n, err := file.Read(chunk)
 		if err == io.EOF {
@@ -199,15 +209,31 @@ func (s *nodeKeeperServer) Download(req *download.DownloadRequest, stream downlo
 			fmt.Println("Cannot read file",err)
 			return err
 		}
+
 		// Send Chunk
-		err = stream.Send(&download.DownloadResponse{Data: &download.DownloadResponse_ChuckData{ChuckData: chunk[:n]}})
+		err = stream.Send(&download.DownloadResponse{Data: &download.DownloadResponse_Chunk{
+			// Send the chunk of data and chunk id
+			Chunk: &download.ChunkData{
+				Data:    chunk[:n],
+				ChunkId: int64(id),
+			},
+		}})
 		if err != nil {
 			fmt.Println("Cannot send chunk",err)
 			return err
 		}
+		// Skip the bytes
+		if skip > 0 {
+			_, err = file.Seek(int64(skip*1024*1024), 1)
+			if err != nil {
+				fmt.Println("Cannot seek file",
+				err)
+				return err
+			}
+		}
+		id += skip+1
 	}
 	return nil
-
 }
 
 // Replication RPCs
@@ -655,7 +681,8 @@ func main() {
 // go run .\data_keeper\main.go 127.0.0.1 8080 8085 
 // go run .\data_keeper\main.go 8080 8085 
 // go run .\data_keeper\main.go 127.0.0.1 
-
+// go run .\data_keeper\main.go  127.0.0.1 9040 9806
+// go run .\data_keeper\main.go  127.0.0.1 9041 9807
 
 
 // go run .\data_keeper\main.go -break --> MyIp + Empty Port + Empty Port

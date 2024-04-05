@@ -135,7 +135,10 @@ func handleDownloadFile(servers_data []*download.Server, filename string) {
 		downloadClient := download.NewDownloadServiceClient(connToDataNode)
 		stream, err := downloadClient.Download(context.Background(), &download.DownloadRequest{
 			FileName: filename,
+			Offset: 0,
+			Skip: 0,
 		})
+
 		if err != nil {
 			fmt.Println("Cannot download file", err)
 			return
@@ -158,7 +161,7 @@ func handleDownloadFile(servers_data []*download.Server, filename string) {
 				fmt.Println("Cannot receive chunk", err)
 				return
 			}
-			_, err = file.Write(chunk.GetChuckData())
+			_, err = file.Write(chunk.GetChunk().GetData())
 			if err != nil {
 				fmt.Println("Cannot write chunk to file", err)
 				return
@@ -168,6 +171,83 @@ func handleDownloadFile(servers_data []*download.Server, filename string) {
 		fmt.Println("File downloaded successfully")
 	} else {
 		fmt.Println("Multiple servers available")
+		// connect to the server
+		// open file
+		file, err := os.Create(filename)
+		if err != nil {
+			fmt.Println("Cannot create file", err)
+			return
+		}
+		var wg sync.WaitGroup
+		wg.Add(len(servers_data))
+	
+		// Channel to receive chunks from servers as form of bytes of chunk and id of chunk
+		chunkChan := make(chan []byte, 100)
+		idChan := make(chan int, 100)
+		
+	
+		// loop through the servers
+		for offset, data_node := range servers_data {
+			go func(data_node *download.Server, offset int,skip int) {
+				defer wg.Done()
+				address := data_node.Ip + ":" + data_node.Port
+
+				// filepath := data_node.FilePath BASMA
+
+				connToDataNode, err := grpc.Dial(address, grpc.WithInsecure())
+				if err != nil {
+					fmt.Println("Cannot connect to Data Node at", address)
+					return
+				}
+				defer connToDataNode.Close()
+
+				// send download request
+				downloadClient := download.NewDownloadServiceClient(connToDataNode)
+				stream, err := downloadClient.Download(context.Background(), &download.DownloadRequest{
+					FileName: filename,
+					Offset: int64(offset),
+					Skip: int64(skip),
+				})
+				if err != nil {
+					fmt.Println("Cannot download file", err)
+					return
+				}
+				// receive chunks
+				for {
+					chunk, err := stream.Recv()
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						fmt.Println("Cannot receive chunk", err)
+						return
+					}
+					data := chunk.GetChunk().GetData()
+					id := chunk.GetChunk().GetChunkId()
+
+					// save chunk to chunkChan
+					chunkChan <- data
+					idChan <- int(id)
+
+				}
+			}(data_node, offset,len(servers_data)-1)
+		}
+		go func() {
+			wg.Wait()
+			close(chunkChan)
+			close(idChan)
+		}()
+		// sort the chunks by id
+		chunks := make(map[int][]byte)
+		for data := range chunkChan {
+			id := <-idChan
+			chunks[id] = data
+		}
+		for i := 0; i < len(chunks); i++ {
+			file.Write(chunks[i])
+		}
+		file.Close()
+		fmt.Println("File downloaded successfully")
 	}
 }
 
