@@ -235,7 +235,7 @@ func (store *FileLookUpTable) ResetIdleFiles(max float64){
 	for _, file := range store.data {
 		
 		// Idle While Confirming
-		if time.Since(file.confirming_timestamp).Seconds()>max{
+		if file.confirming && time.Since(file.confirming_timestamp).Seconds()>max{
 			// Break Confirming
 			store.UnSetConfirming(file.file_name)
 			fmt.Printf("[Break Confirmation] File %s\n",file.file_name)
