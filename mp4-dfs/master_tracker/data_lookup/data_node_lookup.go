@@ -175,7 +175,7 @@ func (store *DataNodeLookUpTable) CheckPingStatus(){
 	defer store.mutex.Unlock()
 
 	for _, dataNode := range store.data {
-		if dataNode.alive && time.Since(dataNode.ping_timestamp).Seconds()>5{
+		if dataNode.alive && time.Since(dataNode.ping_timestamp).Seconds()>4{
 			fmt.Printf("DataNode %s is Idl at time stamp %s \n",dataNode.Id,dataNode.ping_timestamp.Format(time.RFC3339))
 			dataNode.alive=false
 		}

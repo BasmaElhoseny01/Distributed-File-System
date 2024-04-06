@@ -160,7 +160,6 @@ func (s *nodeKeeperServer) UploadFile(stream upload.UploadService_UploadFileServ
 	_,err=upload_file_client.NotifyMaster(context.Background(),&upload.NotifyMasterRequest{
 		NodeId: s.Id,
 		FileName: fileName,
-		FilePath: savePath,
 	})
 	if err!=nil{
 		fmt.Printf("Failed to Notify Master with uploading file %s %v\n",fileName,err)

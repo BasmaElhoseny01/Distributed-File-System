@@ -31,7 +31,6 @@ message UploadFileResponse{}
 message NotifyMasterRequest{
     string node_id = 1;  //id for datanode known by the master
     string file_name=2;
-    string file_path=3; // file path on the datanode
 }
 message NotifyMasterResponse{}
 

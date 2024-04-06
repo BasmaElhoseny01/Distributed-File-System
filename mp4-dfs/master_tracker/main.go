@@ -112,10 +112,9 @@ func (s *masterServer) RequestUpload (ctx context.Context, in *upload.RequestUpl
 func (s *masterServer) NotifyMaster (ctx context.Context, in *upload.NotifyMasterRequest) (*upload.NotifyMasterResponse,error){
 	dataNodeId:=in.GetNodeId()
 	fileName:=in.GetFileName()
-	filePath:=in.GetFilePath()
 
 	// Add File to Files LookUpTable
-	newFile:=file_lookup.NewFile(fileName,dataNodeId,filePath)
+	newFile:=file_lookup.NewFile(fileName,dataNodeId)
 	err:=s.files_lookup_table.AddFile(&newFile)
 	if err!=nil{
 		fmt.Printf("Error When adding file %s to lookup Table\n error %v\n",fileName,err)
@@ -328,8 +327,8 @@ func checkIdleNodes(master *masterServer){
 		print("Check Ideal Nodes....\n")
 		master.data_node_lookup_table.CheckPingStatus()
 
-		// Sleep for 5 seconds before the next check
-		time.Sleep(5 * time.Second)
+		// Sleep for 4 seconds before the next check
+		time.Sleep(4 * time.Second)
 	}
 
 }

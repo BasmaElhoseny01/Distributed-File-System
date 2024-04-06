@@ -21,7 +21,7 @@ type File struct {
 	confirming_timestamp time.Time
 }
 
-func NewFile(file_name string, data_node_1 string,path_1 string) File {
+func NewFile(file_name string, data_node_1 string) File {
 	return File{
 		file_name:    file_name,
 
