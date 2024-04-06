@@ -424,13 +424,15 @@ func ResetIdleFiles(master *masterServer) {
 // ###################################################### Utils ##########################################################
 func (s *masterServer) sendClientConfirm(fileName string){
 
-	if sleep_one_time && true{
-		sleep_one_time=false
-		println("Sleeping Before Sending Notification To Client....")
-		time.Sleep(40 * time.Second)
-		println("GoodMorning")
+	// For Simulation Purposes
+	// if sleep_one_time && true{
+	// 	sleep_one_time=false
+	// 	println("Sleeping Before Sending Notification To Client....")
+	// 	time.Sleep(40 * time.Second)
+	// 	println("GoodMorning")
 
-	}
+	// }
+
 	// Set Confirming flag back to be false
 	defer s.files_lookup_table.UnSetConfirming(fileName)
 
@@ -499,7 +501,7 @@ func (s *masterServer) sendClientConfirm(fileName string){
 }
 
 
-var sleep_one_time bool=true;
+// var sleep_one_time bool=true; // for simulation 
 
 func main() {
 	// Thread to listen to alive pings from data keepers
