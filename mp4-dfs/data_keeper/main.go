@@ -232,6 +232,9 @@ func (s *nodeKeeperServer) Download(req *download.DownloadRequest, stream downlo
 		}
 		id += skip+1
 	}
+
+	fmt.Printf("Done Downloading %s \n",fileName)
+
 	return nil
 }
 

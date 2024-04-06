@@ -86,7 +86,7 @@ func handleUploadFile(path string, socket string) error {
 		ClientSocket: socket,
 	})
 	if err != nil {
-		fmt.Println("Failed to request port from Master", err)
+		fmt.Println("Failed to request port from Master\n\n", err)
 		return err
 	}
 

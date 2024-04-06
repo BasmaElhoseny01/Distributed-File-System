@@ -47,7 +47,12 @@ func (store *ClientLookUpTable)RemoveClient(fileName string) (error){
 
 //Add New ClientG
 func (store *ClientLookUpTable)GetClientSocket(fileName string) (string){
-	return store.data[fileName].socket
+	_, exists := store.data[fileName]
+	if exists {
+		return store.data[fileName].socket
+	}else {
+		return ""
+	}
 }
 
 //Get Info

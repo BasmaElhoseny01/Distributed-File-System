@@ -17,7 +17,6 @@ import (
 	data_lookup "mp4-dfs/master_tracker/data_lookup"
 	file_lookup "mp4-dfs/master_tracker/file_lookup"
 
-	cf "mp4-dfs/schema/confirm_file_transfer"
 	download "mp4-dfs/schema/download"
 	hb "mp4-dfs/schema/heart_beat"
 	reg "mp4-dfs/schema/register"
@@ -31,7 +30,6 @@ type masterServer struct {
 	hb.UnimplementedHeartBeatServiceServer
 	upload.UnimplementedUploadServiceServer
 	download.UnimplementedDownloadServiceServer
-	cf.UnimplementedConfirmFileTransferServiceServer
 	replicate.UnimplementedReplicateServiceServer
 
 	data_node_lookup_table data_lookup.DataNodeLookUpTable
@@ -74,7 +72,7 @@ func (s *masterServer) RequestUpload (ctx context.Context, in *upload.RequestUpl
 
 	// check if file already exist	
 	if  exists :=s.files_lookup_table.CheckFileExists(file_name); exists {
-		errorMsg := fmt.Sprintf("File %s already exists", file_name)
+		errorMsg := fmt.Sprintf("\nFile %s already exists\n", file_name)
 		fmt.Println(errorMsg)
 		return &upload.RequestUploadResponse{}, errors.New(errorMsg)
     }
@@ -425,16 +423,34 @@ func ResetIdleFiles(master *masterServer) {
 }
 // ###################################################### Utils ##########################################################
 func (s *masterServer) sendClientConfirm(fileName string){
+
+	if sleep_one_time && true{
+		sleep_one_time=false
+		println("Sleeping Before Sending Notification To Client....")
+		time.Sleep(40 * time.Second)
+		println("GoodMorning")
+
+	}
 	// Set Confirming flag back to be false
 	defer s.files_lookup_table.UnSetConfirming(fileName)
 
 	// Send Notification to Client
 	// GetSocket for the Client 
 	client_socket:=s.client_lookup_table.GetClientSocket(fileName)
+	if client_socket==""{
+		//No Client For That File
+		fmt.Printf("No Client for file %s\n", fileName)
+
+		// Set File as Confirmed
+		s.files_lookup_table.ConfirmFile(fileName)
+
+		return
+	}
 	//1. Establish Connection to the Client
 	connToClient, err := grpc.Dial(client_socket, grpc.WithInsecure())
 	if err != nil {
 		fmt.Printf("Can not connect to Client at %s error: %v \n", client_socket,err)
+		return
 	}
 	defer func() {
 		connToClient.Close()
@@ -444,11 +460,6 @@ func (s *masterServer) sendClientConfirm(fileName string){
 
 	file_confirm_client:=upload.NewUploadServiceClient(connToClient)
 	fmt.Print("Sending Notification To Client ....\n")
-	
-	// println("Sleeping")
-	// time.Sleep(50 * time.Second)
-	// // time.Sleep(10 * time.Second)
-	// println("GoodMorning")
 
 	res, err:=file_confirm_client.ConfirmUpload(context.Background(),&upload.ConfirmUploadRequest{
 		FileName: fileName,
@@ -470,6 +481,7 @@ func (s *masterServer) sendClientConfirm(fileName string){
 		// Remove Client
 		s.client_lookup_table.RemoveClient(fileName)
 
+
 		return
 	}
 	if response_status=="wrong_file"{
@@ -485,6 +497,9 @@ func (s *masterServer) sendClientConfirm(fileName string){
 	s.client_lookup_table.RemoveClient(fileName)
 	fmt.Print("Removed Client :D\n")
 }
+
+
+var sleep_one_time bool=true;
 
 func main() {
 	// Thread to listen to alive pings from data keepers
