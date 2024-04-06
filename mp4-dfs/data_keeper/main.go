@@ -484,6 +484,8 @@ func (s *nodeKeeperServer) handleCopy(file_name string, src_address string){
 	if err!=nil{
 		fmt.Println("Failed to sending ACK To Master", err)
 	}
+	fmt.Printf("Replication Ack Sent to Master\n")
+
 	connToMaster.Close()
 }
 

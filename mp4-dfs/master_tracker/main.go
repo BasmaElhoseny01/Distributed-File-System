@@ -87,8 +87,8 @@ func (s *masterServer) RequestUpload (ctx context.Context, in *upload.RequestUpl
 	// Get File Service Socket for Node
 	ip,port:=s.data_node_lookup_table.GetNodeFileServiceAddress(node_id)
 	if ip == "" {
-		fmt.Printf("Can not Get DataNode [%s] Port %v\n",node_id,err)
-		return  &upload.RequestUploadResponse{},err
+		fmt.Printf("No Data Nodes")
+		return  &upload.RequestUploadResponse{},errors.New("no data nodes")
 	}
 	node_socket:=ip+":"+port
 
@@ -334,9 +334,11 @@ func checkIdleNodes(master *masterServer){
 func checkUnConfirmedFiles(master *masterServer){
 	for{
 		// 2.Sent Notifications to Clients
-		println("Checking UnConfirmed Files...\n")
+		println("Checking UnConfirmed Files...")
 		unconfirmedFiles:=master.files_lookup_table.CheckUnConfirmedFiles()
-		println(unconfirmedFiles)
+		fmt.Print("UnconfirmedFiles: ")
+		fmt.Println(unconfirmedFiles)
+
 		for _, file := range unconfirmedFiles{
 			// Set State for this File to be Confirming
 			master.files_lookup_table.SetConfirming(file)
@@ -357,6 +359,9 @@ func checkReplication(master *masterServer) {
 		// Iterate through distinct file instances
 		// Getting non replicated files
 		files := master.files_lookup_table.CheckUnReplicatedFiles(master.data_node_lookup_table.IsNodeAlive)
+		fmt.Print("Unreplicated Files: ")
+		fmt.Println(files)
+
 		for _, file := range files {
 			// Get Source Machines
 			sourceMachines := master.files_lookup_table.GetFileSourceMachines(file,master.data_node_lookup_table.IsNodeAlive)

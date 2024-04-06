@@ -89,10 +89,12 @@ func handleUploadFile(path string, socket string) error {
 		fmt.Println("Failed to request port from Master\n\n", err)
 		return err
 	}
-
 	nodeSocket := response.GetNodeSocket()
+
 	//Close Connection with Master
 	connToMaster.Close()
+
+
 	fmt.Printf("Sending File to %s ...\n", nodeSocket)
 
 	//4. Transfer File
