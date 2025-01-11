@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package upload;
+
+option go_package = "schema/upload";
+
+
+
+// RequestUpload
+message RequestUploadRequest{
+    string file_name=1;
+    string client_socket=2; // to be used in Notifcation
+}
+message RequestUploadResponse{
+    string node_socket=1;
+}
+
+//UploadFile
+message UploadFileRequest{
+    oneof data{
+        FileInfo file_info=1;
+        bytes chuck_data = 2;
+    }
+}
+message FileInfo{
+    string file_name = 1;
+}
+message UploadFileResponse{}
+
+//NotifyMaster
+message NotifyMasterRequest{
+    string node_id = 1;  //id for datanode known by the master
+    string file_name=2;
+}
+message NotifyMasterResponse{}
+
+//NotifyClient
+message ConfirmUploadRequest{
+    string file_name=1;
+}
+message ConfirmUploadResponse{
+    string status=1;
+}
+
+// Services
+service UploadService {
+    rpc RequestUpload (RequestUploadRequest) returns (RequestUploadResponse);
+    rpc UploadFile(stream UploadFileRequest) returns (UploadFileResponse);
+    rpc NotifyMaster(NotifyMasterRequest) returns (NotifyMasterResponse);
+    rpc ConfirmUpload(ConfirmUploadRequest) returns (ConfirmUploadResponse);
+}
+
+// protoc --go_out=. --go-grpc_out=.  ./schema/upload/upload.proto

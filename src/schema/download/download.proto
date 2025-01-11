@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package download;
+
+option go_package = "schema/download";
+
+message DownloadRequest {
+    string file_name = 1;
+    int64 offset = 2;
+    int64 skip = 3;
+}
+
+message VideoInfo{
+    string name = 1;
+}
+message DownloadResponse {
+    oneof data {
+        VideoInfo info = 1;
+        ChunkData chunk = 2;
+        int64 chunk_id = 3;
+    }
+}
+
+message ChunkData{
+    bytes data = 1;
+    int64 chunk_id = 2;
+}
+message server{
+    string port = 1;
+    string ip = 2;
+}
+
+message serverList{
+    repeated server servers = 1;
+}
+message DownloadServerResponse {
+    // list of servers or file not found error
+    oneof data {
+        serverList servers = 1;
+        string error = 2;
+        
+    }
+}
+
+// Services
+service DownloadService {
+    rpc Download(DownloadRequest) returns (stream DownloadResponse) {}
+    rpc GetServer(DownloadRequest) returns (DownloadServerResponse) {}
+}
+// protoc --go_out=. --go-grpc_out=.  ./schema/download/download.proto

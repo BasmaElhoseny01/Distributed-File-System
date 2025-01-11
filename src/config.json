@@ -1,0 +1,8 @@
+{
+    "master": {
+        "ip": "localhost",
+        "node_port": 8080,
+        "node_ping_port": 8085,
+        "client_port": 8090
+    }
+}
